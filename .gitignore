@@ -1,2 +1,4 @@
 East Africa Cargo.zip
 .supabase_password
+node_modules/
+supabase/.temp/
