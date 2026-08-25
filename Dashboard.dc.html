@@ -119,8 +119,8 @@
           <div style="font-size:12.5px; color:#7A7A7C;">Shipping Dashboard Login</div>
         </div>
         <div style="display:flex; flex-direction:column; gap:12px;">
-          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Username
-            <input type="text" autoCapitalize="off" value="{{ loginUsername }}" onChange="{{ onLoginUsernameChange }}" onKeyDown="{{ onLoginKeyDown }}" style="{{ inputStyle }}" placeholder="e.g. fazal" />
+          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Email address
+            <input type="email" autoCapitalize="off" value="{{ loginUsername }}" onChange="{{ onLoginUsernameChange }}" onKeyDown="{{ onLoginKeyDown }}" style="{{ inputStyle }}" placeholder="name@example.com" />
           </label>
           <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Password
             <input type="password" value="{{ loginPassword }}" onChange="{{ onLoginPasswordChange }}" onKeyDown="{{ onLoginKeyDown }}" style="{{ inputStyle }}" placeholder="Password" />
@@ -4144,6 +4144,7 @@ const SEED_ORDERS = [
 class Component extends DCLogic {
   state = {
     currentUser: null,
+    currentUserProfile: null,
     trackQuery: '', trackShipmentResult: null, trackSearched: false,
     loginUsername: '',
     loginPassword: '',
@@ -4302,30 +4303,35 @@ class Component extends DCLogic {
         this.setState(saved, () => { this.backfillBatchLabels(); this.purgeExpiredLuggagePhotos(); });
       }
     } catch (e) { /* ignore corrupt storage */ }
-    try {
-      const rawSession = localStorage.getItem(SESSION_KEY);
-      if (rawSession) {
-        const session = JSON.parse(rawSession);
-        if (session && session.username && USERS.some(u => u.username === session.username)) {
-          this.setState({ currentUser: session.username });
-        }
-      }
-    } catch (e) { /* ignore corrupt session */ }
+    this.restoreSupabaseSession();
+  }
+
+  async restoreSupabaseSession() {
+    if (!window.eacSupabase) return;
+    const { data, error } = await window.eacSupabase.auth.getSession();
+    if (error || !data.session) return;
+    const user = data.session.user;
+    const profileResult = await window.eacSupabase.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
+    this.setState({ currentUser: user.email || user.id, currentUserProfile: profileResult.data || null });
   }
 
   onLoginUsernameChange(e) { this.setState({ loginUsername: e.target.value, loginError: '' }); }
   onLoginPasswordChange(e) { this.setState({ loginPassword: e.target.value, loginError: '' }); }
   onLoginKeyDown(e) { if (e.key === 'Enter') this.attemptLogin(); }
-  attemptLogin = () => {
-    const uname = (this.state.loginUsername || '').trim().toLowerCase();
-    const pass = this.state.loginPassword || '';
-    const match = USERS.find(u => u.username === uname && u.password === pass);
-    if (!match) {
-      this.setState({ loginError: 'Incorrect username or password.' });
+  attemptLogin = async () => {
+    const email = (this.state.loginUsername || '').trim().toLowerCase();
+    const password = this.state.loginPassword || '';
+    if (!window.eacSupabase) {
+      this.setState({ loginError: 'Supabase is not configured.' });
       return;
     }
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ username: match.username })); } catch (e) {}
-    this.setState({ currentUser: match.username, loginUsername: '', loginPassword: '', loginError: '' });
+    const { data, error } = await window.eacSupabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
+      this.setState({ loginError: error ? error.message : 'Incorrect email or password.' });
+      return;
+    }
+    const profileResult = await window.eacSupabase.from('profiles').select('display_name, role').eq('id', data.user.id).maybeSingle();
+    this.setState({ currentUser: data.user.email || data.user.id, currentUserProfile: profileResult.data || null, loginUsername: '', loginPassword: '', loginError: '' });
   };
   onTrackQueryChange = (e) => this.setState({ trackQuery: e.target.value });
   onTrackKeyDown = (e) => { if (e.key === 'Enter') this.doTrackSearch(); };
@@ -4521,8 +4527,8 @@ class Component extends DCLogic {
     window.QRCode.toCanvas(this.trackQrCanvas, url, { width: 150, margin: 1, color: { dark: '#2B2A29', light: '#ffffff' } }, () => {});
   }
   logout = () => {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
-    this.setState({ currentUser: null, loginUsername: '', loginPassword: '', loginError: '' });
+    if (window.eacSupabase) window.eacSupabase.auth.signOut();
+    this.setState({ currentUser: null, currentUserProfile: null, loginUsername: '', loginPassword: '', loginError: '' });
   };
 
   migrateShipmentStatuses(shipments) {
@@ -5292,7 +5298,7 @@ class Component extends DCLogic {
   }
   getCurrentUserName() {
     const u = USERS.find(x => x.username === this.state.currentUser);
-    return u ? u.name : '';
+    return this.state.currentUserProfile ? this.state.currentUserProfile.display_name : (u ? u.name : '');
   }
   stampPaymentUpdate(patch) {
     return { ...patch, paymentUpdatedBy: this.getCurrentUserName() || 'Unknown', paymentUpdatedAt: new Date().toISOString() };
@@ -6942,7 +6948,7 @@ class Component extends DCLogic {
 
     return {
       showLoginOverlay: !this.state.currentUser,
-      currentUserName: currentUserObj ? currentUserObj.name : '',
+      currentUserName: this.getCurrentUserName(),
       loginUsername: this.state.loginUsername,
       loginPassword: this.state.loginPassword,
       loginError: this.state.loginError,
