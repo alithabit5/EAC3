@@ -151,6 +151,7 @@
       </div>
       <div class="eac-tabstrip" style="display:flex; gap:6px; background:#F2F0EC; border-radius:10px; padding:4px; flex-wrap:wrap;">
         <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goOverview }}" style="{{ tabStyleOverview }}">Overview</button></sc-if>
+        <a href="Invoice.dc.html" style="padding:9px 12px; border-radius:7px; background:transparent; color:#6B6B6D; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap;">Invoice</a>
         <button onClick="{{ goShipments }}" style="{{ tabStyleShipments }}">Shipments</button>
         <button onClick="{{ goCollections }}" style="{{ tabStyleCollections }}">Money Collection</button>
         <button onClick="{{ goOrders }}" style="{{ tabStyleOrders }}">Order</button>
@@ -177,7 +178,6 @@
       <div style="display:flex; align-items:center; gap:12px;">
         <div class="no-print eac-desktop-only" style="display:flex; align-items:center; gap:4px; background:#F2F0EC; border-radius:9px; padding:4px 6px;">
           <span style="font-size:11px; color:#6B6B6D; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; padding:0 4px;">Open</span>
-          <a href="Invoice.dc.html" style="padding:6px 11px; border-radius:6px; background:#fff; border:1px solid #E6E3DE; color:#8C1D2E; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">Invoice</a>
           <a href="Materials Receipt.dc.html" style="padding:6px 11px; border-radius:6px; background:#fff; border:1px solid #E6E3DE; color:#8C1D2E; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">Materials Receipt</a>
           <a href="Track Shipment.dc.html" style="padding:6px 11px; border-radius:6px; background:#fff; border:1px solid #E6E3DE; color:#6B6B6D; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">Track</a>
           <a href="Shipment Label.dc.html" style="padding:6px 11px; border-radius:6px; background:#fff; border:1px solid #E6E3DE; color:#6B6B6D; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;">Label</a>
