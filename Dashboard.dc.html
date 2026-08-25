@@ -150,18 +150,22 @@
         </div>
       </div>
       <div class="eac-tabstrip" style="display:flex; gap:6px; background:#F2F0EC; border-radius:10px; padding:4px; flex-wrap:wrap;">
-        <button onClick="{{ goOverview }}" style="{{ tabStyleOverview }}">Overview</button>
+        <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goOverview }}" style="{{ tabStyleOverview }}">Overview</button></sc-if>
         <button onClick="{{ goShipments }}" style="{{ tabStyleShipments }}">Shipments</button>
         <button onClick="{{ goCollections }}" style="{{ tabStyleCollections }}">Money Collection</button>
         <button onClick="{{ goOrders }}" style="{{ tabStyleOrders }}">Order</button>
         <button onClick="{{ goTrack }}" style="{{ tabStyleTrack }}">Track Shipment</button>
-        <button onClick="{{ goRequests }}" style="{{ tabStyleRequests }}">Customer Requests</button>
-        <button onClick="{{ goCashFazal }}" style="{{ tabStyleCashFazal }}">Cash Balance Amrat</button>
-        <button onClick="{{ goCashOffice }}" style="{{ tabStyleCashOffice }}">Cash Balance Mabela</button>
-        <button onClick="{{ goInventory }}" style="{{ tabStyleInventory }}">Inventory</button>
+        <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ goRequests }}" style="{{ tabStyleRequests }}">Customer Requests</button>
+          <button onClick="{{ goCashFazal }}" style="{{ tabStyleCashFazal }}">Cash Balance Amrat</button>
+          <button onClick="{{ goCashOffice }}" style="{{ tabStyleCashOffice }}">Cash Balance Mabela</button>
+          <button onClick="{{ goInventory }}" style="{{ tabStyleInventory }}">Inventory</button>
+        </sc-if>
         <button onClick="{{ goPacking }}" style="{{ tabStylePacking }}">Packing Materials</button>
-        <button onClick="{{ goReports }}" style="{{ tabStyleReports }}">Reports</button>
-        <button onClick="{{ goAccounts }}" style="{{ tabStyleAccounts }}">Accounts</button>
+        <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ goReports }}" style="{{ tabStyleReports }}">Reports</button>
+          <button onClick="{{ goAccounts }}" style="{{ tabStyleAccounts }}">Accounts</button>
+        </sc-if>
         <sc-if value="{{ canSeeAdminPortals }}" hint-placeholder-val="{{ false }}">
           <button onClick="{{ goDocuments }}" style="{{ tabStyleDocuments }}">Documents &amp; Staff</button>
           <button onClick="{{ goBudget }}" style="{{ tabStyleBudget }}">Cash Forecast</button>
@@ -752,8 +756,10 @@
           </sc-if>
 
           <div style="display:flex; gap:10px; margin-bottom:16px; align-items:center;">
-            <button onClick="{{ setShipPaymentFilterPaid }}" class="no-print" style="{{ paidChipStyle }}">{{ filteredPaidCountLabel }}</button>
-            <button onClick="{{ setShipPaymentFilterPending }}" class="no-print" style="{{ pendingChipStyle }}">{{ filteredPendingCountLabel }}</button>
+            <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ setShipPaymentFilterPaid }}" class="no-print" style="{{ paidChipStyle }}">{{ filteredPaidCountLabel }}</button>
+              <button onClick="{{ setShipPaymentFilterPending }}" class="no-print" style="{{ pendingChipStyle }}">{{ filteredPendingCountLabel }}</button>
+            </sc-if>
             <button onClick="{{ printShipments }}" class="no-print" style="padding:7px 14px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Print Shipments</button>
             <button onClick="{{ printShipments }}" class="no-print" style="padding:7px 14px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Save as PDF</button>
             <button onClick="{{ shareShipmentsToWhatsApp }}" class="no-print" style="padding:7px 14px; border:1px solid #25D366; background:#fff; color:#128C4A; border-radius:20px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Share via WhatsApp</button>
@@ -4320,7 +4326,8 @@ class Component extends DCLogic {
     if (error || !data.session) return;
     const user = data.session.user;
     const profileResult = await window.eacSupabase.from('profiles').select('display_name, role').eq('id', user.id).maybeSingle();
-    this.setState({ currentUser: user.email || user.id, currentUserProfile: profileResult.data || null });
+    const profile = profileResult.data || null;
+    this.setState({ currentUser: user.email || user.id, currentUserProfile: profile, activeTab: profile && profile.role === 'collector' ? 'shipments' : this.state.activeTab });
   }
 
   onLoginUsernameChange(e) { this.setState({ loginUsername: e.target.value, loginError: '' }); }
@@ -4339,7 +4346,8 @@ class Component extends DCLogic {
       return;
     }
     const profileResult = await window.eacSupabase.from('profiles').select('display_name, role').eq('id', data.user.id).maybeSingle();
-    this.setState({ currentUser: data.user.email || data.user.id, currentUserProfile: profileResult.data || null, loginUsername: '', loginPassword: '', loginError: '' });
+    const profile = profileResult.data || null;
+    this.setState({ currentUser: data.user.email || data.user.id, currentUserProfile: profile, activeTab: profile && profile.role === 'collector' ? 'shipments' : 'overview', loginUsername: '', loginPassword: '', loginError: '' });
   };
   onTrackQueryChange = (e) => this.setState({ trackQuery: e.target.value });
   onTrackKeyDown = (e) => { if (e.key === 'Enter') this.doTrackSearch(); };
@@ -7104,8 +7112,8 @@ class Component extends DCLogic {
       onMarkSeaBatchStatusChange: (e) => this.setMarkBatchStatus('Sea', e.target.value),
       onMarkAirExpressBatchStatusChange: (e) => this.setMarkBatchStatus('AirExpress', e.target.value),
       onMarkAirNormalBatchStatusChange: (e) => this.setMarkBatchStatus('AirNormal', e.target.value),
-      isAdminUser: this.state.currentUser === 'admin',
-      isNotAdminUser: this.state.currentUser !== 'admin',
+      isAdminUser: !!(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin'),
+      isNotAdminUser: !(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin'),
       airRateExpress: this.state.airRates['Air - Express Cargo'] || '0',
       airRateNormal: this.state.airRates['Air - Normal Cargo'] || '0',
       onAirRateExpressChange: (e) => this.updateAirRate('Air - Express Cargo', e.target.value),
@@ -7134,8 +7142,8 @@ class Component extends DCLogic {
       tabStyleReports: activeTab === 'reports' ? tabActive : tabInactive,
       tabStyleAccounts: activeTab === 'accounts' ? tabActive : tabInactive,
 
-      canSeeAdminPortals: this.state.currentUser === 'admin',
-      canSeeSeifControl: this.state.currentUser === 'admin' || this.state.currentUser === 'seif.t',
+      canSeeAdminPortals: !!(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin'),
+      canSeeSeifControl: !!(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin'),
       isDocuments: activeTab === 'documents',
       isBudget: activeTab === 'budget',
       isSeif: activeTab === 'seif',
