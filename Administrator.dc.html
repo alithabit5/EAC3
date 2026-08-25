@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="./supabase/client.js"></script>
+<script src="./support.js"></script>
+<template id="__bundler_thumbnail" data-bg-color="#8C1D2E">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#8C1D2E"/><text x="50" y="60" font-size="25" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">ADM</text></svg>
+</template>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; }
+    html { overflow-x:hidden; }
+    body { margin:0; overflow-x:hidden; }
+    @media (max-width:820px) {
+      .admin-shell { padding:18px 14px !important; }
+      .admin-card { padding:18px !important; }
+      .admin-form { grid-template-columns:1fr !important; }
+      .admin-actions { align-items:stretch !important; flex-direction:column; }
+      .admin-actions button { width:100%; }
+    }
+  </style>
+</helmet>
+<div class="admin-shell" style="min-height:100vh; background:#F7F6F4; font-family:-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:28px;">
+  <div style="max-width:960px; margin:0 auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:20px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <a href="Dashboard.dc.html" style="font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none;">&larr; Dashboard</a>
+        <div style="font-size:20px; font-weight:700; color:#8C1D2E;">Administrator</div>
+      </div>
+      <div style="font-size:12.5px; color:#6B6B6D;">Signed in as <strong style="color:#2B2A29;">{{ adminName }}</strong></div>
+    </div>
+
+    <sc-if value="{{ accessDenied }}" hint-placeholder-val="{{ false }}">
+      <div class="admin-card" style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:24px; color:#B23A3A; font-weight:700;">Administrator access is required.</div>
+    </sc-if>
+    <sc-if value="{{ accessGranted }}" hint-placeholder-val="{{ false }}">
+      <div class="admin-card" style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:22px 24px; margin-bottom:18px;">
+        <div style="font-size:16px; font-weight:700; margin-bottom:4px;">Create User</div>
+        <div style="font-size:12.5px; color:#8A8A8C; margin-bottom:16px;">Create a Supabase login and assign its application role.</div>
+        <div class="admin-form" style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px;">
+          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Login email
+            <input type="email" value="{{ form.email }}" onChange="{{ onEmailChange }}" placeholder="name@example.com" style="{{ inputStyle }}" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Name
+            <input type="text" value="{{ form.name }}" onChange="{{ onNameChange }}" placeholder="Full name" style="{{ inputStyle }}" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Password
+            <input type="password" value="{{ form.password }}" onChange="{{ onPasswordChange }}" placeholder="At least 8 characters" style="{{ inputStyle }}" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Role
+            <select value="{{ form.role }}" onChange="{{ onRoleChange }}" style="{{ inputStyle }}"><option value="admin">Admin</option><option value="collector">Collector</option></select>
+          </label>
+        </div>
+        <div class="admin-actions" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px;">
+          <div style="font-size:12.5px; color:#B23A3A; font-weight:600;">{{ message }}</div>
+          <button onClick="{{ createUser }}" disabled="{{ submitting }}" style="padding:10px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">{{ submitLabel }}</button>
+        </div>
+      </div>
+
+      <div class="admin-card" style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:22px 24px;">
+        <div style="font-size:16px; font-weight:700; margin-bottom:14px;">Users</div>
+        <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:13px; min-width:440px;"><thead><tr style="text-align:left; border-bottom:1px solid #E6E3DE;"><th style="padding:9px 10px; color:#8A8A8C; font-size:11.5px; text-transform:uppercase;">Name</th><th style="padding:9px 10px; color:#8A8A8C; font-size:11.5px; text-transform:uppercase;">Role</th><th style="padding:9px 10px; color:#8A8A8C; font-size:11.5px; text-transform:uppercase;">Created</th></tr></thead><tbody><sc-for list="{{ users }}" as="user" hint-placeholder-count="2"><tr style="border-bottom:1px solid #F5F3EF;"><td style="padding:11px 10px;">{{ user.name }}</td><td style="padding:11px 10px;">{{ user.role }}</td><td style="padding:11px 10px; color:#6B6B6D;">{{ user.created }}</td></tr></sc-for></tbody></table></div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { session: null, profile: null, users: [], form: { email: '', name: '', password: '', role: 'collector' }, message: '', submitting: false };
+  componentDidMount() { this.loadAdmin(); }
+  async loadAdmin() {
+    if (!window.eacSupabase) return this.setState({ message: 'Supabase is not configured.' });
+    const result = await window.eacSupabase.auth.getSession();
+    const session = result.data && result.data.session;
+    if (!session) return this.setState({ message: 'Please sign in first.' });
+    const profileResult = await window.eacSupabase.from('profiles').select('display_name, role').eq('id', session.user.id).maybeSingle();
+    const profile = profileResult.data;
+    if (!profile || profile.role !== 'admin') return this.setState({ session, profile, accessDenied: true });
+    this.setState({ session, profile }, () => this.loadUsers());
+  }
+  async loadUsers() {
+    const result = await window.eacSupabase.from('profiles').select('display_name, role, created_at').order('created_at', { ascending: true });
+    if (result.error) return this.setState({ message: result.error.message });
+    this.setState({ users: (result.data || []).map(user => ({ name: user.display_name, role: user.role, created: new Date(user.created_at).toLocaleDateString() })) });
+  }
+  updateForm(field, value) { this.setState(s => ({ form: { ...s.form, [field]: value }, message: '' })); }
+  createUser = async () => {
+    const { email, name, password, role } = this.state.form;
+    if (!email || !name || !password) return this.setState({ message: 'Email, name, and password are required.' });
+    if (password.length < 8) return this.setState({ message: 'Password must be at least 8 characters.' });
+    this.setState({ submitting: true, message: '' });
+    const result = await window.eacSupabase.functions.invoke('create-user', { body: { email: email.trim(), name: name.trim(), password, role } });
+    if (result.error || !result.data || !result.data.ok) return this.setState({ submitting: false, message: (result.data && result.data.error) || (result.error && result.error.message) || 'User could not be created.' });
+    this.setState({ submitting: false, form: { email: '', name: '', password: '', role: 'collector' }, message: 'User created successfully.' }, () => this.loadUsers());
+  };
+  renderVals() {
+    return {
+      accessGranted: !!(this.state.profile && this.state.profile.role === 'admin'), accessDenied: !!this.state.accessDenied,
+      adminName: this.state.profile ? this.state.profile.display_name : '', users: this.state.users, form: this.state.form,
+      message: this.state.message, submitting: this.state.submitting, submitLabel: this.state.submitting ? 'Creating...' : 'Create User',
+      inputStyle: 'padding:10px 11px; border:1px solid #DCD9D3; border-radius:7px; font-size:13.5px; font-family:inherit; color:#2B2A29; background:#fff; outline:none;',
+      onEmailChange: (e) => this.updateForm('email', e.target.value), onNameChange: (e) => this.updateForm('name', e.target.value), onPasswordChange: (e) => this.updateForm('password', e.target.value), onRoleChange: (e) => this.updateForm('role', e.target.value), createUser: this.createUser
+    };
+  }
+}
+</script>
+</body>
+</html>

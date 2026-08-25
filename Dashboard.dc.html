@@ -183,6 +183,7 @@
         <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}">
           <button onClick="{{ goReports }}" style="{{ tabStyleReports }}">Reports</button>
           <button onClick="{{ goAccounts }}" style="{{ tabStyleAccounts }}">Accounts</button>
+          <a href="Administrator.dc.html" style="{{ tabStyleAccounts }}; text-decoration:none; display:block;">Administrator</a>
         </sc-if>
         <sc-if value="{{ canSeeAdminPortals }}" hint-placeholder-val="{{ false }}">
           <button onClick="{{ goDocuments }}" style="{{ tabStyleDocuments }}">Documents &amp; Staff</button>
