@@ -1082,18 +1082,14 @@ class Component extends DCLogic {
     try {
       if (!window.html2pdf) throw new Error('PDF generator is unavailable.');
       const source = document.getElementById('invoiceSheet');
-      const clone = source.cloneNode(true);
-      clone.querySelectorAll('.no-print').forEach(el => el.remove());
-      clone.style.cssText = 'position:fixed; left:-10000px; top:0; width:768px; background:#fff;';
-      document.body.appendChild(clone);
+      if (!source) throw new Error('Invoice sheet is not available.');
       const pdfBlob = await window.html2pdf().set({
         margin: 8,
         filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print') },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(clone).outputPdf('blob');
-      clone.remove();
+      }).from(source).outputPdf('blob');
       const file = new File([pdfBlob], (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf', { type: 'application/pdf' });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] }) && window.self === window.top) {
         await navigator.share({ title: 'East Africa Cargo Invoice ' + f.invoiceNo, text, files: [file] });
