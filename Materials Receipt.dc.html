@@ -19,6 +19,18 @@
       #receiptWrap { padding: 0 !important; max-width: 100% !important; }
     }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { overflow-x: hidden; }
+    body { margin: 0; overflow-x: hidden; }
+    @media (max-width: 820px) {
+      #receiptWrap { width: 100%; padding: 0 !important; }
+      #receiptSheet { padding: 18px 14px !important; overflow: hidden; }
+      #receiptSheet > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+      #receiptSheet input, #receiptSheet select, #receiptSheet button { max-width: 100%; min-height: 40px; }
+      #receiptSheet table { display: block; overflow-x: auto; white-space: nowrap; }
+      #receiptSheet table input { min-height: 34px; }
+      #receiptSheet canvas { width: 100% !important; max-width: 330px; }
+    }
   </style>
 </helmet>
 

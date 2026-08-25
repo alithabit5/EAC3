@@ -4,11 +4,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html { overflow-x: hidden; }
+  body { margin: 0; overflow-x: hidden; }
+  @media (max-width: 820px) {
+    .eac-track-shell { padding: 18px 12px !important; }
+    .eac-track-search { flex-wrap: wrap; }
+    .eac-track-search input, .eac-track-search button { width: 100%; min-height: 44px; }
+    .eac-track-route { flex-wrap: wrap; }
+    .eac-track-meta { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; }
+  }
+</style>
 </head>
 <body>
 <x-dc>
 
-<div style="min-height:100vh; background:#F7F6F4; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:28px 16px;">
+<div class="eac-track-shell" style="min-height:100vh; background:#F7F6F4; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:28px 16px;">
   <div style="max-width:480px; margin:0 auto;">
     <a href="Dashboard.dc.html" class="no-print" style="display:inline-block; font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none; margin-bottom:12px;">&larr; Dashboard</a>
     <div style="display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:22px;">
@@ -17,7 +29,7 @@
       <div style="font-size:12.5px; color:#7A7A7C;">Track Your Shipment</div>
     </div>
 
-    <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:16px; display:flex; gap:10px; margin-bottom:20px;">
+    <div class="eac-track-search" style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:16px; display:flex; gap:10px; margin-bottom:20px;">
       <input type="text" placeholder="Enter tracking / invoice number" value="{{ query }}" onChange="{{ onQueryChange }}" onKeyDown="{{ onKeyDown }}" style="flex:1; padding:11px 12px; border:1px solid #DCD9D3; border-radius:8px; font-size:14px; font-family:inherit;" />
       <button onClick="{{ search }}" style="padding:11px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap;">Track</button>
     </div>
@@ -28,7 +40,7 @@
 
     <sc-if value="{{ found }}" hint-placeholder-val="{{ false }}">
       <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:18px; margin-bottom:16px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div class="eac-track-route" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
           <div>
             <div style="font-size:14.5px; font-weight:700; color:#2B2A29;">{{ shipment.senderName }}</div>
             <div style="font-size:11.5px; color:#9A9A9C; margin-top:2px;">{{ shipment.location }}</div>
@@ -39,7 +51,7 @@
             <div style="font-size:11.5px; color:#9A9A9C; margin-top:2px;">{{ shipment.destination }}</div>
           </div>
         </div>
-        <div style="display:flex; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:1px solid #F0EEE9; font-size:12px; color:#6B6B6D;">
+        <div class="eac-track-meta" style="display:flex; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:1px solid #F0EEE9; font-size:12px; color:#6B6B6D;">
           <span>Invoice: <strong style="color:#2B2A29;">{{ shipment.invoiceNo }}</strong></span>
           <span>{{ shipment.type }}</span>
           <span>{{ shipment.weightLabel }}</span>
