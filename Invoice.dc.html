@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -1057,13 +1058,13 @@ class Component extends DCLogic {
     const url = window.location.origin + window.location.pathname.replace(/Invoice\.dc\.html$/, 'Track Shipment.dc.html') + '?inv=' + encodeURIComponent(this.state.form.invoiceNo || '');
     window.QRCode.toCanvas(this.trackingQrCanvas, url, { width: 56, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
   }
-  shareToWhatsApp = () => {
-    try { this.saveToHistory(); } catch (e) {}
+  shareToWhatsApp = async () => {
+    if (!this.saveToHistory()) return;
     const f = this.state.form;
     const text = 'East Africa Cargo \u2014 Invoice ' + f.invoiceNo + '\nDate: ' + f.date +
       (f.batchLabel ? ('\nBatch: ' + f.batchLabel) : '') +
       '\nCustomer: ' + (f.receiverName || f.senderName || '') +
-      '\nPlease find the invoice attached (use Print > Save as PDF, then attach it here).';
+      '\nInvoice PDF attached.';
     const url = 'https://wa.me/?text=' + encodeURIComponent(text);
     const openLink = () => {
       try {
@@ -1079,13 +1080,35 @@ class Component extends DCLogic {
       }
     };
     try {
-      if (navigator.share && window.self === window.top) {
-        const p = navigator.share({ title: 'East Africa Cargo Invoice ' + f.invoiceNo, text });
-        if (p && p.catch) p.catch(() => openLink());
+      if (!window.html2pdf) throw new Error('PDF generator is unavailable.');
+      const source = document.getElementById('invoiceSheet');
+      const clone = source.cloneNode(true);
+      clone.querySelectorAll('.no-print').forEach(el => el.remove());
+      clone.style.cssText = 'position:fixed; left:-10000px; top:0; width:768px; background:#fff;';
+      document.body.appendChild(clone);
+      const pdfBlob = await window.html2pdf().set({
+        margin: 8,
+        filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(clone).outputPdf('blob');
+      clone.remove();
+      const file = new File([pdfBlob], (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf', { type: 'application/pdf' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] }) && window.self === window.top) {
+        await navigator.share({ title: 'East Africa Cargo Invoice ' + f.invoiceNo, text, files: [file] });
         return;
       }
-    } catch (e) {}
-    openLink();
+      const downloadUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      openLink();
+    } catch (e) {
+      openLink();
+    }
   };
 
   renderVals() {
