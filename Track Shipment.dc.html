@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<div style="min-height:100vh; background:#F7F6F4; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:28px 16px;">
+  <div style="max-width:480px; margin:0 auto;">
+    <a href="Dashboard.dc.html" class="no-print" style="display:inline-block; font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none; margin-bottom:12px;">&larr; Dashboard</a>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:22px;">
+      <img src="assets/logo.jpg" alt="East Africa Cargo" style="width:52px; height:52px; object-fit:contain; border-radius:8px;" />
+      <div style="font-size:18px; font-weight:700; color:#8C1D2E;">East Africa Cargo</div>
+      <div style="font-size:12.5px; color:#7A7A7C;">Track Your Shipment</div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:16px; display:flex; gap:10px; margin-bottom:20px;">
+      <input type="text" placeholder="Enter tracking / invoice number" value="{{ query }}" onChange="{{ onQueryChange }}" onKeyDown="{{ onKeyDown }}" style="flex:1; padding:11px 12px; border:1px solid #DCD9D3; border-radius:8px; font-size:14px; font-family:inherit;" />
+      <button onClick="{{ search }}" style="padding:11px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap;">Track</button>
+    </div>
+
+    <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:24px; text-align:center; color:#B23A3A; font-size:13.5px; font-weight:600;">No shipment found for that tracking number.</div>
+    </sc-if>
+
+    <sc-if value="{{ found }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:18px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div>
+            <div style="font-size:14.5px; font-weight:700; color:#2B2A29;">{{ shipment.senderName }}</div>
+            <div style="font-size:11.5px; color:#9A9A9C; margin-top:2px;">{{ shipment.location }}</div>
+          </div>
+          <div style="font-size:20px; color:#8C1D2E;">&#8594;</div>
+          <div style="text-align:right;">
+            <div style="font-size:14.5px; font-weight:700; color:#2B2A29;">{{ shipment.receiverName }}</div>
+            <div style="font-size:11.5px; color:#9A9A9C; margin-top:2px;">{{ shipment.destination }}</div>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:1px solid #F0EEE9; font-size:12px; color:#6B6B6D;">
+          <span>Invoice: <strong style="color:#2B2A29;">{{ shipment.invoiceNo }}</strong></span>
+          <span>{{ shipment.type }}</span>
+          <span>{{ shipment.weightLabel }}</span>
+          <span>{{ shipment.quantityLabel }}</span>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:22px 22px 6px;">
+        <div style="font-size:16px; font-weight:700; color:#2B2A29; margin-bottom:18px;">Shipment Status</div>
+        <sc-for list="{{ steps }}" as="step" hint-placeholder-count="6">
+          <div style="display:flex; gap:14px;">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+              <div style="{{ step.circleStyle }}">{{ step.mark }}</div>
+              <div style="{{ step.lineStyle }}"></div>
+            </div>
+            <div style="padding-bottom:26px;">
+              <div style="{{ step.titleStyle }}">{{ step.label }}</div>
+              <div style="{{ step.subStyle }}">{{ step.subLabel }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STORAGE_KEY = 'eac_dashboard_data_v1';
+const STEP_LABELS = ['Received At Origin Facility', 'Departed in Transit', 'Customs Clearance', 'At Final Destination', 'Out For Delivery', 'Collected'];
+
+function getQueryParam(name) {
+  try {
+    return new URLSearchParams(window.location.search).get(name) || '';
+  } catch (e) { return ''; }
+}
+
+class Component extends DCLogic {
+  state = { query: '', shipment: null, searched: false };
+
+  componentDidMount() {
+    const inv = getQueryParam('inv');
+    if (inv) {
+      this.setState({ query: inv }, () => this.doSearch(inv));
+    }
+  }
+
+  onQueryChange(e) { this.setState({ query: e.target.value }); }
+  onKeyDown(e) { if (e.key === 'Enter') this.doSearch(this.state.query); }
+  searchClick() { this.doSearch(this.state.query); }
+
+  doSearch(rawQuery) {
+    const q = (rawQuery || '').trim().toLowerCase();
+    if (!q) { this.setState({ shipment: null, searched: false }); return; }
+    let shipment = null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        const map = { 'Booked': 'Received At Origin Facility', 'In Transit': 'Departed in Transit', 'Arrived': 'At Final Destination', 'Delivered': 'Collected' };
+        const list = saved.shipments || [];
+        shipment = list.find(s => (s.invoiceNo || '').toLowerCase() === q) || null;
+        if (shipment && map[shipment.status]) shipment = { ...shipment, status: map[shipment.status] };
+      }
+    } catch (e) { /* ignore */ }
+    if (!shipment) {
+      try {
+        const rawHist = localStorage.getItem('eac_invoice_history_v1');
+        if (rawHist) {
+          const history = JSON.parse(rawHist);
+          const key = Object.keys(history).find(k => k.toLowerCase() === q);
+          if (key) {
+            const rec = history[key];
+            shipment = {
+              invoiceNo: rec.form.invoiceNo, senderName: rec.form.senderName, receiverName: rec.form.receiverName,
+              receiverPhone: rec.form.receiverPhone, destination: rec.form.destination, mainDestination: '',
+              weight: '', status: 'Received At Origin Facility', location: rec.form.senderName ? '' : ''
+            };
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    this.setState({ shipment, searched: true });
+  }
+
+  renderVals() {
+    const { query, shipment, searched } = this.state;
+    let steps = [];
+    if (shipment) {
+      const currentIndex = STEP_LABELS.indexOf(shipment.status);
+      steps = STEP_LABELS.map((label, i) => {
+        const done = currentIndex >= 0 && i < currentIndex;
+        const current = i === currentIndex;
+        const isLast = i === STEP_LABELS.length - 1;
+        const color = (done || current) ? '#3F8F5C' : '#C7C4BE';
+        return {
+          label,
+          mark: (done || (current && current)) ? '\u2713' : (i + 1),
+          circleStyle: 'width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; background:' + ((done || current) ? '#3F8F5C' : '#D9D6D0') + ';',
+          lineStyle: isLast ? 'width:2px; flex:1;' : 'width:2px; flex:1; background:' + (done ? '#3F8F5C' : '#E2DFD9') + ';',
+          titleStyle: 'font-size:14px; font-weight:700; color:' + (current ? '#2B2A29' : (done ? '#2B2A29' : '#9A9A9C')) + ';',
+          subStyle: 'font-size:12px; margin-top:2px; color:' + (current ? '#3F8F5C' : (done ? '#9A9A9C' : '#B7B4AE')) + ';',
+          subLabel: current ? 'Current' : (done ? 'Completed' : 'Pending')
+        };
+      });
+    }
+    return {
+      query,
+      onQueryChange: (e) => this.onQueryChange(e),
+      onKeyDown: (e) => this.onKeyDown(e),
+      search: () => this.searchClick(),
+      found: !!shipment,
+      notFound: searched && !shipment,
+      shipment: shipment ? { ...shipment, weightLabel: shipment.weight ? shipment.weight + ' kg' : '', quantityLabel: (Number(shipment.quantity) || 0) ? (Number(shipment.quantity) + ' pcs') : '' } : {},
+      steps
+    };
+  }
+}
+</script>
+</body>
+</html>

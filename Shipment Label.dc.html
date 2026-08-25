@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <script src="./qrcode.js"></script>
+  <script src="./qrcode-canvas.js"></script>
+  <style>
+    @media print {
+      body { margin: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</helmet>
+<div style="min-height:100vh; background:#F7F6F4; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:24px 16px; display:flex; flex-direction:column; align-items:center; gap:16px;">
+  <a href="Dashboard.dc.html" class="no-print" style="align-self:flex-start; font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none; margin-bottom:10px;">&larr; Dashboard</a>
+  <button onClick="{{ printLabel }}" class="no-print" style="padding:10px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">Print Label</button>
+
+  <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+    <div style="background:#fff; border:1px solid #E6E3DE; border-radius:12px; padding:24px; text-align:center; color:#B23A3A; font-size:13.5px; font-weight:600;">No shipment found for this tracking number.</div>
+  </sc-if>
+
+  <sc-if value="{{ found }}" hint-placeholder-val="{{ false }}">
+    <div style="width:340px; background:#fff; border:1px solid #2B2A29; border-radius:4px; overflow:hidden;">
+      <div style="padding:14px 16px; display:flex; align-items:center; justify-content:center; gap:10px;">
+        <img src="assets/logo.jpg" alt="logo" style="width:32px; height:32px; object-fit:contain; border-radius:4px; flex-shrink:0;" />
+        <div style="font-size:16px; font-weight:800; color:#8C1D2E; white-space:nowrap;">EAST AFRICA CARGO</div>
+      </div>
+
+      <div style="border-top:1px dashed #C7C4BE;"></div>
+
+      <div style="padding:10px 16px 0; text-align:center; font-size:11px; color:#6B6B6D;">Scan to track your shipment</div>
+
+      <div style="padding:10px 16px 16px; text-align:center;">
+        <canvas ref="{{ qrCanvasRef }}" width="180" height="180" style="width:180px; height:180px;"></canvas>
+        <div style="font-size:11px; letter-spacing:1px; color:#6B6B6D; margin-top:6px;">{{ shipment.invoiceNo }}</div>
+      </div>
+
+      <div style="padding:12px 16px; display:grid; grid-template-columns:auto 1fr; gap:8px 10px; font-size:12.5px; border-top:1px dashed #C7C4BE;">
+        <span style="color:#9A9A9C;">Invoice No.</span><strong style="text-align:right;">{{ shipment.invoiceNo }}</strong>
+        <span style="color:#9A9A9C;">Type</span><strong style="text-align:right;">{{ shipment.type }}</strong>
+        <span style="color:#9A9A9C;">To</span><strong style="text-align:right;">{{ shipment.toLabel }}</strong>
+        <sc-if value="{{ shipment.isAir }}" hint-placeholder-val="{{ false }}">
+          <span style="color:#9A9A9C;">Weight</span><strong style="text-align:right;">{{ shipment.weightLabel }}</strong>
+          <span style="color:#9A9A9C;">Description</span><strong style="text-align:right;">{{ shipment.description }}</strong>
+          <span style="color:#9A9A9C;">Quantity</span><strong style="text-align:right;">{{ shipment.quantityLabel }}</strong>
+        </sc-if>
+      </div>
+
+      <div style="border-top:1px dashed #C7C4BE;"></div>
+
+      <div style="background:#F2F0EC; padding:12px 16px; display:flex; flex-direction:column; gap:3px; font-size:10.5px; color:#6B6B6D; text-align:center;">
+        <div>Amrat Office: +968 95408747 &middot; Mabela Office: +968 91224545</div>
+        <div>Oman: +968 79048465 &middot; Dar: +255 674 549801</div>
+        <div>ZNZ: +255 772 641491 &middot; Uganda: +256 701 059797</div>
+        <div>east.africa.cargo.om@gmail.com</div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STORAGE_KEY = 'eac_dashboard_data_v1';
+
+function getQueryParam(name) {
+  try { return new URLSearchParams(window.location.search).get(name) || ''; } catch (e) { return ''; }
+}
+
+class Component extends DCLogic {
+  state = { shipment: null, searched: false };
+  qrCanvas = null;
+
+  componentDidMount() {
+    const inv = getQueryParam('inv');
+    let shipment = null;
+    if (inv) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          const map = { 'Booked': 'Received At Origin Facility', 'In Transit': 'Departed in Transit', 'Arrived': 'At Final Destination', 'Delivered': 'Collected' };
+          const list = saved.shipments || [];
+          shipment = list.find(s => (s.invoiceNo || '').toLowerCase() === inv.toLowerCase()) || null;
+          if (shipment && map[shipment.status]) shipment = { ...shipment, status: map[shipment.status] };
+        }
+      } catch (e) { /* ignore */ }
+    }
+    this.setState({ shipment, searched: true }, () => this.renderQr());
+  }
+
+  renderQr() {
+    if (!this.qrCanvas || !this.state.shipment || !window.QRCode) return;
+    const url = window.location.origin + window.location.pathname.replace(/Shipment Label\.dc\.html$/, 'Track Shipment.dc.html') + '?inv=' + encodeURIComponent(this.state.shipment.invoiceNo || '');
+    window.QRCode.toCanvas(this.qrCanvas, url, { width: 180, margin: 1, color: { dark: '#2B2A29', light: '#ffffff' } }, () => {});
+  }
+
+  printLabel() { window.print(); }
+
+  renderVals() {
+    const { shipment, searched } = this.state;
+    return {
+      found: !!shipment,
+      notFound: searched && !shipment,
+      shipment: shipment ? { ...shipment, weightLabel: shipment.weight ? shipment.weight + ' kg' : '\u2014', quantityLabel: shipment.quantity ? shipment.quantity + ' pcs' : '\u2014', isAir: (shipment.type || '').indexOf('Air') === 0, toLabel: [shipment.mainDestination, shipment.destination].filter(Boolean).join('/') || '\u2014' } : {},
+      printLabel: () => this.printLabel(),
+      qrCanvasRef: (el) => { this.qrCanvas = el; this.renderQr(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

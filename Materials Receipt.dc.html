@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <style>
+    @page { size: letter; margin: 0.25in; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      html, body { height: auto !important; }
+      #receiptSheet { box-shadow: none !important; border: none !important; margin: 0 !important; }
+      #receiptWrap { padding: 0 !important; max-width: 100% !important; }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; background:#F7F6F4; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#2B2A29; padding:20px; animation: fadeIn 0.2s ease;">
+  <div id="receiptWrap" style="max-width:768px; margin:0 auto;">
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <a href="Dashboard.dc.html" style="font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none;">&larr; Dashboard</a>
+        <div style="font-size:19px; font-weight:700; color:#8C1D2E;">Materials Receipt</div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button onClick="{{ newReceipt }}" style="padding:9px 16px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">New Receipt</button>
+        <button onClick="{{ addItem }}" style="padding:9px 16px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Add Item Row</button>
+        <button onClick="{{ shareWhatsApp }}" style="padding:9px 16px; border:1px solid #25D366; background:#fff; color:#128C4A; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Share to WhatsApp</button>
+        <button onClick="{{ printReceipt }}" style="padding:9px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">Print Receipt</button>
+        <button onClick="{{ saveReceipt }}" style="padding:9px 18px; border:none; background:#2E7D4F; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">{{ saveBtnLabel }}</button>
+      </div>
+    </div>
+
+    <div class="no-print" style="background:#fff; border:1px solid #E6E3DE; border-radius:10px; padding:14px 18px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <div style="font-size:13.5px; font-weight:700; color:#2B2A29;">Saved Receipts ({{ savedCount }} active)</div>
+        <sc-if value="{{ hasCancelled }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:11.5px; font-weight:700; color:#B23A3A;">{{ cancelledCount }} cancelled</div>
+        </sc-if>
+        <input type="text" placeholder="Search receipt no. / receiver / phone / invoice..." value="{{ searchText }}" onChange="{{ onSearchChange }}" style="flex:1; min-width:220px; border:1px solid #E6E3DE; border-radius:7px; padding:7px 10px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+      </div>
+      <sc-if value="{{ hasSavedResults }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; flex-direction:column; gap:6px; max-height:210px; overflow-y:auto;">
+          <sc-for list="{{ savedList }}" as="r" hint-placeholder-count="3">
+            <div style="{{ r.rowStyle }}">
+              <div style="flex:1; min-width:0;">
+                <div style="{{ r.titleStyle }}">{{ r.receiptNo }} <span style="{{ r.typeChipStyle }}">{{ r.shipmentType }}</span></div>
+                <div style="font-size:11.5px; color:#9A9A9C;">{{ r.summary }}</div>
+                <sc-if value="{{ r.isCancelled }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11px; font-weight:700; color:#B23A3A; margin-top:3px;">{{ r.cancelledLabel }}</div>
+                </sc-if>
+              </div>
+              <button onClick="{{ r.load }}" style="padding:6px 12px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;">Open</button>
+              <sc-if value="{{ r.isActive }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ r.remove }}" style="background:none; border:none; color:#B23A3A; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; padding:0 4px;">Cancel</button>
+              </sc-if>
+              <sc-if value="{{ r.isCancelled }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ r.restore }}" style="background:none; border:none; color:#2E7D4F; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; padding:0 4px;">Restore</button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ savedEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:12.5px; color:#9A9A9C; padding:6px 0;">{{ emptyMessage }}</div>
+      </sc-if>
+    </div>
+
+    <div id="receiptSheet" style="position:relative; background:#fff; border:1px solid #E6E3DE; border-radius:10px; padding:30px 34px;">
+      <sc-if value="{{ isReceiptCancelled }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; pointer-events:none; z-index:40; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:10px; transform:rotate(-32deg);">
+            <div style="border:6px solid rgba(178,58,58,0.4); border-radius:14px; padding:12px 46px; font-size:72px; font-weight:900; letter-spacing:9px; color:rgba(178,58,58,0.32); white-space:nowrap; font-family:Helvetica, Arial, sans-serif;">CANCELLED</div>
+            <div style="font-size:13px; font-weight:800; color:rgba(140,58,58,0.6); white-space:nowrap; font-family:Helvetica, Arial, sans-serif;">{{ receiptCancelledLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #8C1D2E; padding-bottom:16px; margin-bottom:18px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <img src="assets/logo.jpg" alt="logo" style="width:56px; height:56px; object-fit:contain; border-radius:7px;" />
+          <div>
+            <div style="font-size:19px; font-weight:800; color:#8C1D2E; letter-spacing:0.2px;">EAST AFRICA CARGO</div>
+            <div style="font-size:11.5px; color:#9A9A9C;">Materials Receipt</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px; color:#9A9A9C; text-transform:uppercase; letter-spacing:0.5px;">Receipt No.</div>
+          <input type="text" value="{{ receiptNo }}" onChange="{{ onReceiptNoChange }}" style="font-size:16px; font-weight:700; color:#2B2A29; text-align:right; border:none; outline:none; width:150px; font-family:inherit; background:transparent;" />
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:14px 16px; margin-bottom:20px;">
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Date
+          <input type="date" value="{{ form.date }}" onChange="{{ ff.date }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Collection Location
+          <select value="{{ form.location }}" onChange="{{ ff.location }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29; background:#fff;">
+            <sc-for list="{{ locationSelectOptions }}" as="opt" hint-placeholder-count="4">
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+            </sc-for>
+          </select>
+          <sc-if value="{{ addingLocation }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; gap:6px; margin-top:6px;">
+              <input type="text" placeholder="New location name" value="{{ newLocationText }}" onChange="{{ onNewLocationTextChange }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:6px 8px; font-size:12.5px; font-family:inherit; flex:1;" />
+              <button onClick="{{ confirmAddLocation }}" style="padding:0 12px; border:none; border-radius:6px; background:#8C1D2E; color:#fff; font-weight:700; font-size:12px; cursor:pointer; font-family:inherit;">Add</button>
+              <button onClick="{{ cancelAddLocation }}" style="padding:0 12px; border:1px solid #DCD9D3; border-radius:6px; background:#fff; color:#6B6B6D; font-size:12px; cursor:pointer; font-family:inherit;">Cancel</button>
+            </div>
+          </sc-if>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Shipment Type
+          <select value="{{ form.shipmentType }}" onChange="{{ ff.shipmentType }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29; background:#fff;">
+            <option value="Air">Air (Kg + Quantity)</option>
+            <option value="Sea">Sea (Quantity only)</option>
+          </select>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Receipt / Invoice No.
+          <input type="text" placeholder="Linked shipment invoice no." value="{{ form.invoiceNo }}" onChange="{{ ff.invoiceNo }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Received By
+          <input type="text" placeholder="Name of receiver" value="{{ form.receiverName }}" onChange="{{ ff.receiverName }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Receiver ID Number
+          <input type="text" placeholder="National ID / Passport No." value="{{ form.receiverIdNo }}" onChange="{{ ff.receiverIdNo }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:4px; font-size:11px; color:#8A8A8C; font-weight:600; text-transform:uppercase; letter-spacing:0.3px;">Phone
+          <input type="text" placeholder="+255 ..." value="{{ form.receiverPhone }}" onChange="{{ ff.receiverPhone }}" style="border:1px solid #E6E3DE; border-radius:6px; padding:7px 9px; font-size:13px; font-family:inherit; color:#2B2A29;" />
+        </label>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; margin-bottom:14px;">
+        <thead>
+          <tr style="background:#F7F6F4;">
+            <th style="text-align:left; padding:9px 12px; font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; border-bottom:1px solid #E6E3DE;">#</th>
+            <th style="text-align:left; padding:9px 12px; font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; border-bottom:1px solid #E6E3DE;">Description</th>
+            <th style="text-align:right; padding:9px 12px; font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; border-bottom:1px solid #E6E3DE;">Quantity</th>
+            <sc-if value="{{ showKg }}" hint-placeholder-val="{{ true }}">
+              <th style="text-align:right; padding:9px 12px; font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; border-bottom:1px solid #E6E3DE;">Weight (Kg)</th>
+            </sc-if>
+            <th class="no-print" style="border-bottom:1px solid #E6E3DE; width:32px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ itemRows }}" as="row" hint-placeholder-count="5">
+            <tr style="border-bottom:1px solid #F5F3EF;">
+              <td style="padding:9px 12px; font-size:13px; color:#9A9A9C;">{{ row.index }}</td>
+              <td style="padding:6px 12px;">
+                <input type="text" placeholder="e.g. Big Box - clothing" value="{{ row.description }}" onChange="{{ row.onDescriptionChange }}" style="width:100%; border:none; outline:none; font-size:13px; font-family:inherit; color:#2B2A29; background:transparent;" />
+              </td>
+              <td style="padding:6px 12px; text-align:right;">
+                <input type="number" min="0" placeholder="0" value="{{ row.quantity }}" onChange="{{ row.onQuantityChange }}" style="width:65px; text-align:right; border:none; outline:none; font-size:13px; font-family:inherit; color:#2B2A29; background:transparent;" />
+              </td>
+              <sc-if value="{{ showKg }}" hint-placeholder-val="{{ true }}">
+                <td style="padding:6px 12px; text-align:right;">
+                  <input type="number" min="0" step="0.1" placeholder="—" value="{{ row.kg }}" onChange="{{ row.onKgChange }}" style="width:65px; text-align:right; border:none; outline:none; font-size:13px; font-family:inherit; color:#2B2A29; background:transparent;" />
+                </td>
+              </sc-if>
+              <td class="no-print" style="text-align:center;">
+                <button onClick="{{ row.remove }}" style="background:none; border:none; color:#C7A5AA; font-size:15px; cursor:pointer; font-family:inherit; padding:0;">&times;</button>
+              </td>
+            </tr>
+          </sc-for>
+          <tr>
+            <td></td>
+            <td style="padding:10px 12px; font-size:12.5px; font-weight:700; color:#2B2A29; text-align:right;">Total</td>
+            <td style="padding:10px 12px; font-size:12.5px; font-weight:700; color:#2B2A29; text-align:right;">{{ totalQuantity }}</td>
+            <sc-if value="{{ showKg }}" hint-placeholder-val="{{ true }}">
+              <td style="padding:10px 12px; font-size:12.5px; font-weight:700; color:#2B2A29; text-align:right;">{{ totalKgLabel }}</td>
+            </sc-if>
+            <td class="no-print"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="background:#F7F6F4; border:1px solid #EFEDE9; border-radius:8px; padding:14px 18px; font-size:11.5px; color:#6B6B6D; line-height:1.6; margin:0 0 22px;">
+        By signing below, the Receiver acknowledges that the materials listed above have been received in good condition and correct quantity from East Africa Cargo. Any dispute regarding quantity or condition must be raised at the time of collection.
+        <br /><br />
+        Kwa kutia sahihi hapa chini, Mpokeaji anathibitisha kuwa vifaa vilivyoorodheshwa hapo juu vimepokelewa vikiwa katika hali nzuri na kwa idadi sahihi kutoka East Africa Cargo. Malalamiko yoyote kuhusu idadi au hali ya vifaa lazima yatolewe wakati wa kupokea.
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:28px; margin-bottom:20px;">
+        <div>
+          <div style="font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; font-weight:600; margin-bottom:8px;">Issued By (Company Representative)</div>
+          <canvas ref="{{ issuedSigRef }}" width="340" height="110" style="width:100%; max-width:330px; height:90px; border:1px solid #DCD9D3; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair;"></canvas>
+          <div class="no-print" style="margin-top:6px;">
+            <button onClick="{{ clearIssuedSig }}" style="padding:5px 12px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:6px; font-size:11.5px; cursor:pointer; font-family:inherit;">Clear Signature</button>
+          </div>
+          <div style="border-top:1px solid #C7C4BE; margin-top:8px; padding-top:6px;">
+            <input type="text" placeholder="Name of company representative" value="{{ form.issuedByName }}" onChange="{{ ff.issuedByName }}" style="width:100%; border:none; outline:none; font-size:12.5px; font-family:inherit; color:#2B2A29; background:transparent;" />
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:#8A8A8C; text-transform:uppercase; letter-spacing:0.3px; font-weight:600; margin-bottom:8px;">Received By (Customer / Team Member)</div>
+          <canvas ref="{{ receivedSigRef }}" width="340" height="110" style="width:100%; max-width:330px; height:90px; border:1px solid #DCD9D3; border-radius:6px; background:#fff; touch-action:none; cursor:crosshair;"></canvas>
+          <div class="no-print" style="margin-top:6px;">
+            <button onClick="{{ clearReceivedSig }}" style="padding:5px 12px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:6px; font-size:11.5px; cursor:pointer; font-family:inherit;">Clear Signature</button>
+          </div>
+          <div style="border-top:1px solid #C7C4BE; margin-top:8px; padding-top:6px;">
+            <input type="text" placeholder="Name of receiver" value="{{ form.receivedBySignName }}" onChange="{{ ff.receivedBySignName }}" style="width:100%; border:none; outline:none; font-size:12.5px; font-family:inherit; color:#2B2A29; background:transparent;" />
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px dashed #C7C4BE; padding-top:12px; text-align:center; font-size:10.5px; color:#9A9A9C; line-height:1.6;">
+        <div>Amrat Office: +968 95408747 &middot; Mabela Office: +968 91224545 &middot; Oman: +968 79048465</div>
+        <div>Dar: +255 674 549801 &middot; ZNZ: +255 772 641491 &middot; Uganda: +256 701 059797</div>
+        <div>east.africa.cargo.om@gmail.com</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#8C1D2E">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#8C1D2E"/>
+    <text x="50" y="60" font-size="30" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">RCT</text>
+  </svg>
+</template>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+function todayStr() { const d = new Date(); return d.toISOString().slice(0, 10); }
+const STORE_KEY = 'eac_materials_receipts_v1';
+function loadReceipts() {
+  try { const raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function saveReceipts(list) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch (e) {}
+}
+function makeReceiptNo() {
+  const list = loadReceipts();
+  let max = 0;
+  list.forEach(r => {
+    const m = /(\d+)$/.exec(r.receiptNo || '');
+    if (m) max = Math.max(max, Number(m[1]));
+  });
+  return 'MR-EAC-' + String(max + 1).padStart(4, '0');
+}
+const DEFAULT_LOCATIONS = ['Dar', 'ZNZ', 'Pemba'];
+const ADD_NEW = '__add_new__';
+
+class Component extends DCLogic {
+  state = {
+    receiptNo: makeReceiptNo(),
+    form: {
+      date: todayStr(), location: 'Dar', shipmentType: 'Air', invoiceNo: '', receiverName: '', receiverIdNo: '', receiverPhone: '',
+      issuedByName: '', receivedBySignName: ''
+    },
+    items: [{ id: 'i1', description: '', quantity: '', kg: '' }],
+    locations: DEFAULT_LOCATIONS.slice(),
+    addingLocation: false,
+    newLocationText: '',
+    saved: loadReceipts(),
+    searchText: '',
+    loadedId: null
+  };
+
+  issuedCanvas = null;
+  receivedCanvas = null;
+  drawingState = { issued: false, received: false };
+
+  componentDidMount() {
+    this.setupSignaturePad('issued');
+    this.setupSignaturePad('received');
+  }
+
+  setupSignaturePad(which) {
+    const canvas = which === 'issued' ? this.issuedCanvas : this.receivedCanvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#2B2A29';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const p = e.touches ? e.touches[0] : e;
+      return { x: (p.clientX - rect.left) * scaleX, y: (p.clientY - rect.top) * scaleY };
+    };
+    const start = (e) => {
+      e.preventDefault();
+      this.drawingState[which] = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+    const move = (e) => {
+      if (!this.drawingState[which]) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    };
+    const end = () => { this.drawingState[which] = false; };
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  }
+
+  clearCanvas(which) {
+    const canvas = which === 'issued' ? this.issuedCanvas : this.receivedCanvas;
+    if (!canvas) return;
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  updateField(field, value) {
+    this.setState(s => ({ form: { ...s.form, [field]: value } }));
+  }
+  updateItem(id, field, value) {
+    this.setState(s => ({ items: s.items.map(it => it.id === id ? { ...it, [field]: value } : it) }));
+  }
+  addItem = () => {
+    this.setState(s => ({ items: [...s.items, { id: 'i' + Date.now(), description: '', quantity: '', kg: '' }] }));
+  };
+  removeItem(id) {
+    this.setState(s => ({ items: s.items.length > 1 ? s.items.filter(it => it.id !== id) : s.items }));
+  }
+  printReceipt = () => window.print();
+
+  saveReceipt = () => {
+    const { form, items, receiptNo, loadedId } = this.state;
+    if (!form.receiverName) { window.alert('Enter the receiver name before saving.'); return; }
+    const record = {
+      id: loadedId || ('mr' + Date.now()),
+      receiptNo, ...form,
+      items: items.map(it => ({ ...it, kg: form.shipmentType === 'Sea' ? '' : it.kg })),
+      savedAt: new Date().toLocaleString()
+    };
+    this.setState(s => {
+      const next = s.loadedId
+        ? s.saved.map(r => r.id === s.loadedId ? record : r)
+        : [record, ...s.saved];
+      saveReceipts(next);
+      return { saved: next, loadedId: record.id };
+    });
+  };
+
+  newReceipt = () => {
+    this.clearCanvas('issued');
+    this.clearCanvas('received');
+    this.setState({
+      receiptNo: makeReceiptNo(),
+      form: {
+        date: todayStr(), location: 'Dar', shipmentType: 'Air', invoiceNo: '', receiverName: '', receiverIdNo: '', receiverPhone: '',
+        issuedByName: '', receivedBySignName: ''
+      },
+      items: [{ id: 'i' + Date.now(), description: '', quantity: '', kg: '' }],
+      loadedId: null
+    });
+  };
+
+  loadReceipt(id) {
+    const r = this.state.saved.find(x => x.id === id);
+    if (!r) return;
+    this.clearCanvas('issued');
+    this.clearCanvas('received');
+    this.setState({
+      receiptNo: r.receiptNo,
+      form: {
+        date: r.date || todayStr(), location: r.location || 'Dar', shipmentType: r.shipmentType || 'Air',
+        invoiceNo: r.invoiceNo || '', receiverName: r.receiverName || '', receiverIdNo: r.receiverIdNo || '',
+        receiverPhone: r.receiverPhone || '', issuedByName: r.issuedByName || '', receivedBySignName: r.receivedBySignName || ''
+      },
+      items: (r.items && r.items.length) ? r.items.map(it => ({ ...it })) : [{ id: 'i1', description: '', quantity: '', kg: '' }],
+      loadedId: r.id
+    });
+  }
+
+  deleteReceipt(id) {
+    const r = this.state.saved.find(x => x.id === id);
+    if (!r) return;
+    const who = (window.prompt('Cancel receipt ' + r.receiptNo + '?\n\nEnter your name (this is recorded):') || '').trim();
+    if (!who) return;
+    const reason = (window.prompt('Reason for cancelling (optional):') || '').trim();
+    this.setState(s => {
+      const next = s.saved.map(x => x.id === id
+        ? { ...x, cancelled: true, cancelledBy: who, cancelledReason: reason, cancelledAt: new Date().toLocaleString() }
+        : x);
+      saveReceipts(next);
+      return { saved: next, loadedId: s.loadedId };
+    });
+  }
+
+  restoreReceipt(id) {
+    const r = this.state.saved.find(x => x.id === id);
+    if (!r) return;
+    if (!window.confirm('Restore receipt ' + r.receiptNo + ' to active?')) return;
+    this.setState(s => {
+      const next = s.saved.map(x => x.id === id
+        ? { ...x, cancelled: false, restoredAt: new Date().toLocaleString() }
+        : x);
+      saveReceipts(next);
+      return { saved: next };
+    });
+  }
+
+  shareWhatsApp = () => {
+    const { form, items, receiptNo } = this.state;
+    const isSea = form.shipmentType === 'Sea';
+    const lines = items.filter(it => it.description || it.quantity).map(it => {
+      const qty = it.quantity ? ' \u00d7 ' + it.quantity : '';
+      const kg = (!isSea && it.kg) ? ' \u00b7 ' + it.kg + ' kg' : '';
+      return '\u2022 ' + (it.description || 'Item') + qty + kg;
+    });
+    const totalQty = items.reduce((a, it) => a + (Number(it.quantity) || 0), 0);
+    const totalKg = items.reduce((a, it) => a + (Number(it.kg) || 0), 0);
+    let text = 'EAST AFRICA CARGO \u2014 Materials Receipt\n';
+    text += receiptNo + ' \u00b7 ' + form.shipmentType + '\n';
+    text += 'Date: ' + form.date + ' \u00b7 ' + form.location + '\n';
+    if (form.invoiceNo) text += 'Invoice: ' + form.invoiceNo + '\n';
+    text += 'Received by: ' + (form.receiverName || '\u2014');
+    if (form.receiverPhone) text += ' (' + form.receiverPhone + ')';
+    text += '\n\n' + lines.join('\n');
+    text += '\n\nTotal quantity: ' + totalQty;
+    if (!isSea && totalKg) text += '\nTotal weight: ' + totalKg + ' kg';
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  };
+
+  renderVals() {
+    const itemRows = this.state.items.map((it, idx) => ({
+      ...it,
+      index: idx + 1,
+      onDescriptionChange: (e) => this.updateItem(it.id, 'description', e.target.value),
+      onQuantityChange: (e) => this.updateItem(it.id, 'quantity', e.target.value),
+      onKgChange: (e) => this.updateItem(it.id, 'kg', e.target.value),
+      remove: () => this.removeItem(it.id)
+    }));
+    const totalQuantity = this.state.items.reduce((a, it) => a + (Number(it.quantity) || 0), 0);
+    const totalKg = this.state.items.reduce((a, it) => a + (Number(it.kg) || 0), 0);
+    const showKg = this.state.form.shipmentType !== 'Sea';
+    const currentSaved = this.state.saved.find(r => r.id === this.state.loadedId);
+
+    const q = this.state.searchText.trim().toLowerCase();
+    const matches = this.state.saved.filter(r => {
+      if (!q) return true;
+      return [r.receiptNo, r.receiverName, r.receiverPhone, r.invoiceNo, r.receiverIdNo]
+        .some(v => (v || '').toLowerCase().includes(q));
+    });
+    const savedList = matches.map(r => {
+      const qty = (r.items || []).reduce((a, it) => a + (Number(it.quantity) || 0), 0);
+      const kg = (r.items || []).reduce((a, it) => a + (Number(it.kg) || 0), 0);
+      const parts = [r.date, r.receiverName || '\u2014', r.location, qty + ' pcs'];
+      if (r.shipmentType !== 'Sea' && kg) parts.push(kg + ' kg');
+      return {
+        ...r,
+        summary: parts.join(' \u00b7 '),
+        typeChipStyle: 'display:inline-block; margin-left:6px; padding:2px 7px; border-radius:20px; font-size:10px; font-weight:700; '
+          + (r.shipmentType === 'Sea' ? 'background:oklch(0.93 0.05 230); color:oklch(0.42 0.12 245);' : 'background:oklch(0.94 0.06 90); color:oklch(0.45 0.12 70);'),
+        isCancelled: !!r.cancelled,
+        isActive: !r.cancelled,
+        rowStyle: 'display:flex; align-items:center; gap:12px; border:1px solid #EFEDE9; border-radius:8px; padding:9px 12px;'
+          + (r.cancelled ? ' background:#FBF6F6; opacity:0.72;' : ''),
+        titleStyle: 'font-size:13px; font-weight:700; color:' + (r.cancelled ? '#9A9A9C' : '#2B2A29') + ';'
+          + (r.cancelled ? ' text-decoration:line-through;' : ''),
+        cancelledLabel: r.cancelled
+          ? ('CANCELLED by ' + (r.cancelledBy || '\u2014') + ' \u00b7 ' + (r.cancelledAt || '') + (r.cancelledReason ? ' \u00b7 ' + r.cancelledReason : ''))
+          : '',
+        load: () => this.loadReceipt(r.id),
+        remove: () => this.deleteReceipt(r.id),
+        restore: () => this.restoreReceipt(r.id)
+      };
+    });
+
+    return {
+      showKg,
+      savedList,
+      isReceiptCancelled: !!currentSaved && !!currentSaved.cancelled,
+      receiptCancelledLabel: (currentSaved && currentSaved.cancelled)
+        ? ('CANCELLED \u00b7 by ' + (currentSaved.cancelledBy || '\u2014') + ' \u00b7 ' + (currentSaved.cancelledAt || '') + (currentSaved.cancelledReason ? ' \u00b7 ' + currentSaved.cancelledReason : ''))
+        : '',
+      savedCount: this.state.saved.filter(r => !r.cancelled).length,
+      cancelledCount: this.state.saved.filter(r => r.cancelled).length,
+      hasCancelled: this.state.saved.some(r => r.cancelled),
+      hasSavedResults: savedList.length > 0,
+      savedEmpty: savedList.length === 0,
+      emptyMessage: this.state.saved.length === 0 ? 'No saved receipts yet. Fill the form and press Save.' : 'No receipts match your search.',
+      searchText: this.state.searchText,
+      onSearchChange: (e) => this.setState({ searchText: e.target.value }),
+      saveReceipt: this.saveReceipt,
+      saveBtnLabel: this.state.loadedId ? 'Update Receipt' : 'Save Receipt',
+      newReceipt: this.newReceipt,
+      shareWhatsApp: this.shareWhatsApp,
+      receiptNo: this.state.receiptNo,
+      onReceiptNoChange: (e) => this.setState({ receiptNo: e.target.value }),
+      form: this.state.form,
+      ff: {
+        date: (e) => this.updateField('date', e.target.value),
+        location: (e) => {
+          if (e.target.value === ADD_NEW) { this.setState({ addingLocation: true }); return; }
+          this.updateField('location', e.target.value);
+        },
+        shipmentType: (e) => this.updateField('shipmentType', e.target.value),
+        invoiceNo: (e) => this.updateField('invoiceNo', e.target.value),
+        receiverName: (e) => this.updateField('receiverName', e.target.value),
+        receiverIdNo: (e) => this.updateField('receiverIdNo', e.target.value),
+        receiverPhone: (e) => this.updateField('receiverPhone', e.target.value),
+        issuedByName: (e) => this.updateField('issuedByName', e.target.value),
+        receivedBySignName: (e) => this.updateField('receivedBySignName', e.target.value)
+      },
+      itemRows,
+      addItem: this.addItem,
+      totalQuantity,
+      totalKgLabel: totalKg ? totalKg + ' kg' : '\u2014',
+      printReceipt: this.printReceipt,
+      issuedSigRef: (el) => { this.issuedCanvas = el; if (el) this.setupSignaturePad('issued'); },
+      receivedSigRef: (el) => { this.receivedCanvas = el; if (el) this.setupSignaturePad('received'); },
+      clearIssuedSig: () => this.clearCanvas('issued'),
+      clearReceivedSig: () => this.clearCanvas('received'),
+      locationSelectOptions: this.state.locations.map(l => ({ value: l, label: l })).concat([{ value: ADD_NEW, label: '+ Add New Location' }]),
+      addingLocation: this.state.addingLocation,
+      newLocationText: this.state.newLocationText,
+      onNewLocationTextChange: (e) => this.setState({ newLocationText: e.target.value }),
+      confirmAddLocation: () => {
+        const name = (this.state.newLocationText || '').trim();
+        if (!name) return;
+        this.setState(s => ({
+          locations: s.locations.some(l => l.toLowerCase() === name.toLowerCase()) ? s.locations : [...s.locations, name],
+          form: { ...s.form, location: name },
+          addingLocation: false, newLocationText: ''
+        }));
+      },
+      cancelAddLocation: () => this.setState({ addingLocation: false, newLocationText: '' })
+    };
+  }
+}
+
+</script>
+</body>
+</html>

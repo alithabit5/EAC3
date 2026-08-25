@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <script src="./qrcode.js"></script>
+  <script src="./qrcode-canvas.js"></script>
+  <style>
+    @page { size: letter; margin: 0.25in; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+      html, body { height: auto !important; }
+      #invoiceSheet { box-shadow: none !important; margin: 0 !important; border-width: 1.5px !important; zoom: 0.86; }
+      #invoiceWrap { padding: 0 !important; max-width: 100% !important; }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</helmet>
+      <sc-if value="{{ hasPaymentToast }}" hint-placeholder-val="{{ false }}">
+        <div class="no-print" style="position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; align-items:center; gap:10px; background:#1F4D33; color:#fff; padding:12px 20px; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.22); font-size:13.5px; font-weight:700;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#7BE0A3;"></span>
+          {{ paymentToast }}
+          <button onClick="{{ dismissPaymentToast }}" style="margin-left:6px; border:none; background:transparent; color:#BFE8CE; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;">&times;</button>
+        </div>
+      </sc-if>
+
+<div style="min-height:100vh; background:linear-gradient(160deg, #F4ECE9 0%, #F7F6F4 45%, #EFE6E7 100%); font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color:#111; padding:20px; animation: fadeIn 0.2s ease;">
+  <datalist id="invoiceCustomerPhones">
+    <sc-for list="{{ savedCustomers }}" as="c" hint-placeholder-count="0">
+      <option value="{{ c.phone }}">{{ c.name }}</option>
+    </sc-for>
+  </datalist>
+  <datalist id="invoiceCustomerNames">
+    <sc-for list="{{ savedCustomers }}" as="c" hint-placeholder-count="0">
+      <option value="{{ c.name }}"></option>
+    </sc-for>
+  </datalist>
+  <datalist id="invoiceDescriptions">
+    <sc-for list="{{ savedDescriptions }}" as="d" hint-placeholder-count="0">
+      <option value="{{ d }}"></option>
+    </sc-for>
+  </datalist>
+  <div id="invoiceWrap" style="max-width:768px; margin:0 auto;">
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+      <div style="font-size:19px; font-weight:700; color:#8C1D2E;">Invoice</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button onClick="{{ addItem }}" style="padding:9px 16px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Add Item Row</button>
+        <button onClick="{{ startNewInvoice }}" style="padding:9px 16px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">New Invoice</button>
+        <button onClick="{{ saveAndNext }}" style="padding:9px 18px; border:none; background:#2F7A3E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">Save &amp; Next</button>
+        <button onClick="{{ printInvoice }}" style="padding:9px 18px; border:none; background:#8C1D2E; color:#fff; border-radius:8px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;">Print Invoice</button>
+        <button onClick="{{ saveAsPdf }}" style="padding:9px 16px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Save as PDF</button>
+        <button onClick="{{ shareToWhatsApp }}" style="padding:9px 16px; border:1px solid #25D366; background:#fff; color:#128C4A; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;">Share via WhatsApp</button>
+      </div>
+    </div>
+
+    <div class="no-print" style="display:flex; align-items:center; gap:8px; margin-bottom:16px; background:#fff; border:1px solid #E6E3DE; border-radius:8px; padding:10px 14px; flex-wrap:wrap;">
+      <a href="Dashboard.dc.html" style="font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none; padding-right:4px; border-right:1px solid #E6E3DE; margin-right:4px;">&larr; Dashboard</a>
+      <span style="font-size:12.5px; color:#6B6B6D; font-weight:600;">Find previous invoice:</span>
+      <input type="text" placeholder="e.g. EAC-00001A" value="{{ historySearch }}" onChange="{{ onHistorySearchChange }}" style="border:1px solid #DCD9D3; border-radius:6px; padding:6px 10px; font-size:12.5px; font-family:inherit; flex:1; max-width:220px;" />
+      <button onClick="{{ loadInvoiceFromHistory }}" style="padding:7px 14px; border:none; background:#8C1D2E; color:#fff; border-radius:7px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Open</button>
+      <sc-if value="{{ historyNotFound }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:12px; color:#B23A3A;">No invoice found with that number.</span>
+      </sc-if>
+      <sc-if value="{{ hasRecentInvoices }}" hint-placeholder-val="{{ false }}">
+        <span style="font-size:12px; color:#9A9A9C; font-weight:600; margin-left:6px;">Recent:</span>
+        <span style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <sc-for list="{{ recentInvoices }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.open }}" title="{{ r.title }}" style="{{ r.style }}">{{ r.label }}</button>
+          </sc-for>
+        </span>
+      </sc-if>
+      <sc-if value="{{ isInvoiceActive }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ cancelCurrentInvoice }}" style="padding:7px 14px; border:1px solid #B23A3A; background:#fff; color:#B23A3A; border-radius:7px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Cancel This Invoice</button>
+      </sc-if>
+      <sc-if value="{{ isInvoiceCancelled }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ restoreCurrentInvoice }}" style="padding:7px 14px; border:1px solid #2E7D4F; background:#fff; color:#2E7D4F; border-radius:7px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Restore Invoice</button>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ isInvoiceCancelled }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FBEDED; border:2px solid #B23A3A; border-radius:6px; padding:10px 14px; margin-bottom:10px; text-align:center;">
+        <div style="font-size:15px; font-weight:800; color:#B23A3A; letter-spacing:1.5px;">CANCELLED</div>
+        <div style="font-size:11px; color:#8C3A3A; margin-top:2px;">{{ invoiceCancelledLabel }}</div>
+      </div>
+    </sc-if>
+
+    <div id="invoiceSheet" style="position:relative; background:linear-gradient(180deg, #fff 0%, #fff 88%, #FBF3F4 100%); border:2px solid #5C1220; border-radius:6px; padding:12px 18px; box-shadow:0 10px 34px rgba(92,18,32,0.18);">
+      <sc-if value="{{ isInvoiceCancelled }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute; inset:0; pointer-events:none; z-index:40; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:10px; transform:rotate(-32deg);">
+            <div style="border:6px solid rgba(178,58,58,0.4); border-radius:14px; padding:12px 46px; font-size:72px; font-weight:900; letter-spacing:9px; color:rgba(178,58,58,0.32); white-space:nowrap; font-family:Helvetica, Arial, sans-serif;">CANCELLED</div>
+            <div style="font-size:13px; font-weight:800; color:rgba(140,58,58,0.6); white-space:nowrap; font-family:Helvetica, Arial, sans-serif;">{{ invoiceCancelledLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:start; gap:8px; border-bottom:2px solid #5C1220; padding-bottom:8px; margin-bottom:8px;">
+        <div style="font-size:9.5px; line-height:1.35; color:#111;">
+          <div style="font-size:14px; font-weight:800; letter-spacing:0.2px; background:linear-gradient(90deg, #8C1D2E, #5C1220); -webkit-background-clip:text; background-clip:text; color:transparent;">EAST AFRICA CARGO L.L.C</div>
+          <div>C.R. : 1325556 &middot; P.O.Box: 53 &middot; P.C : 119</div>
+          <div>Sultanate of Oman</div>
+          <div>Gsm : 91789728 (Mabela) &middot; 95408747 (Amrat)</div>
+          <div>Gsm : 91914730 &middot; 97137966 &middot; 79042465</div>
+        </div>
+        <div style="text-align:center;">
+          <img src="assets/logo.jpg" alt="logo" style="width:64px; height:64px; object-fit:contain; border-radius:50%; image-rendering:-webkit-optimize-contrast;" />
+          <div style="display:flex; gap:6px; justify-content:center; margin-top:4px;">
+            <div style="text-align:center;">
+              <canvas ref="{{ mabelaQrRef }}" width="70" height="70" style="width:36px; height:36px;"></canvas>
+              <div style="font-size:6px; color:#444;">Mabela</div>
+            </div>
+            <div style="text-align:center;">
+              <canvas ref="{{ amratQrRef }}" width="70" height="70" style="width:36px; height:36px;"></canvas>
+              <div style="font-size:6px; color:#444;">Amrat</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:9.5px; line-height:1.35; color:#111; text-align:right; direction:rtl;">
+          <div style="font-size:13px; font-weight:800; background:linear-gradient(90deg, #5C1220, #8C1D2E); -webkit-background-clip:text; background-clip:text; color:transparent;">شرق افريقيا للشحن ش.م.م</div>
+          <div>س.ت : 1325556 &middot; ص.ب : 53 &middot; ر.ب : 119</div>
+          <div>سلطنة عمان</div>
+          <div>نقال : 91789728 &middot; 95408747</div>
+          <div>نقال : 91914730 &middot; 97137966 &middot; 79042465</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:auto auto auto 1fr auto; align-items:center; gap:8px; margin-bottom:8px;">
+        <div style="border:2px solid #111; border-radius:5px; padding:5px 10px; font-size:12px; font-weight:700;">
+          Invoice No. : <input type="text" value="{{ form.invoiceNo }}" onChange="{{ ff.invoiceNo }}" style="border:none; outline:none; font-family:inherit; font-size:12px; font-weight:700; width:95px; background:transparent;" />
+        </div>
+        <div style="border:2px solid #111; border-radius:5px; padding:5px 10px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+          Date : <input type="date" value="{{ form.date }}" onChange="{{ ff.date }}" style="border:none; outline:none; font-family:inherit; font-size:11.5px; font-weight:600; background:transparent;" />
+        </div>
+        <div style="border:2px solid #111; border-radius:5px; padding:5px 10px; font-size:12px; font-weight:700; display:flex; align-items:center; gap:6px;">
+          Batch :
+          <select value="{{ form.batchId }}" onChange="{{ ff.batchId }}" style="border:none; outline:none; font-family:inherit; font-size:12px; font-weight:700; background:transparent;">
+            <option value="">&mdash;</option>
+            <sc-for list="{{ batchOptions }}" as="opt" hint-placeholder-count="2">
+              <option value="{{ opt.value }}">{{ opt.label }}</option>
+            </sc-for>
+          </select>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:16px; font-weight:800; letter-spacing:1px; color:#5C1220;">INVOICE</div>
+          <div style="font-size:8px; color:#4A7FB5; margin-top:1px;">Scan to track shipment</div>
+        </div>
+        <canvas ref="{{ trackingQrRef }}" width="56" height="56" style="width:56px; height:56px;"></canvas>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+        <div style="border:2px solid #111; border-radius:5px; padding:6px 10px;">
+          <div style="font-weight:700; font-size:11px; margin-bottom:4px;">Sender&rsquo;s Name &amp; Address</div>
+          <div style="font-size:11px; margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">Name: <input type="text" list="invoiceCustomerNames" value="{{ form.senderName }}" onChange="{{ ff.senderName }}" style="border:none; border-bottom:1px dotted #999; outline:none; font-family:inherit; font-size:11px; width:46%; background:transparent;" />
+            <span style="white-space:nowrap;">Location:</span>
+            <select value="{{ form.location }}" onChange="{{ ff.location }}" style="border:none; outline:none; font-family:inherit; font-size:11px; background:transparent;">
+              <option value="">Select</option>
+              <sc-for list="{{ locationOptions }}" as="opt" hint-placeholder-count="8">
+                <option value="{{ opt }}">{{ opt }}</option>
+              </sc-for>
+              <option value="__add_new__">+ Add New</option>
+            </select>
+          </div>
+          <div style="font-size:11px;">Phone No. : <input type="text" list="invoiceCustomerPhones" value="{{ senderPhoneDisplay }}" onChange="{{ ff.senderPhone }}" style="border:none; border-bottom:1px dotted #999; outline:none; font-family:inherit; font-size:11px; width:60%; background:transparent;" /></div>
+          <sc-if value="{{ addingLocation }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px; display:flex; align-items:center; gap:4px; margin-top:4px;">
+              <input type="text" placeholder="New location" value="{{ newLocationText }}" onChange="{{ onNewLocationTextChange }}" style="border:1px solid #999; border-radius:4px; padding:2px 6px; font-size:11px; font-family:inherit;" />
+              <button onClick="{{ confirmAddLocation }}" style="padding:2px 8px; border:none; background:#8C1D2E; color:#fff; border-radius:4px; font-size:10.5px; cursor:pointer; font-family:inherit;">Add</button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="border:2px solid #111; border-radius:5px; padding:6px 10px;">
+          <div style="font-weight:700; font-size:11px; margin-bottom:4px;">Receiver&rsquo;s Name &amp; Address</div>
+          <div style="font-size:11px; margin-bottom:4px;">Name: <input type="text" list="invoiceCustomerNames" value="{{ form.receiverName }}" onChange="{{ ff.receiverName }}" style="border:none; border-bottom:1px dotted #999; outline:none; font-family:inherit; font-size:11px; width:76%; background:transparent;" /></div>
+          <div style="font-size:11px;">Phone No. : <input type="text" list="invoiceCustomerPhones" value="{{ receiverPhoneDisplay }}" onChange="{{ ff.receiverPhone }}" style="border:none; border-bottom:1px dotted #999; outline:none; font-family:inherit; font-size:11px; width:60%; background:transparent;" /></div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; border:2px solid #111; border-radius:5px; margin-bottom:8px;">
+        <div style="padding:5px 10px; font-size:11px; font-weight:700; border-right:1px solid #111;">Destination :
+          <select value="{{ form.destination }}" onChange="{{ ff.destination }}" style="border:none; outline:none; font-family:inherit; font-size:11px; font-weight:400; width:55%; background:transparent;">
+            <option value="">Select</option>
+            <sc-for list="{{ destinationOptions }}" as="opt" hint-placeholder-count="3">
+              <option value="{{ opt }}">{{ opt }}</option>
+            </sc-for>
+            <option value="__add_new__">+ Add New</option>
+          </select>
+          <sc-if value="{{ addingDestination }}" hint-placeholder-val="{{ false }}">
+            <input type="text" placeholder="New destination" value="{{ newDestinationText }}" onChange="{{ onNewDestinationTextChange }}" style="border:1px solid #999; border-radius:4px; padding:2px 6px; font-size:11px; font-family:inherit; margin-left:4px;" />
+            <button onClick="{{ confirmAddDestination }}" style="padding:2px 8px; border:none; background:#8C1D2E; color:#fff; border-radius:4px; font-size:10.5px; cursor:pointer; font-family:inherit;">Add</button>
+          </sc-if>
+        </div>
+        <div style="padding:5px 10px; font-size:11px; font-weight:700; border-right:1px solid #111;">Final Dest. :
+          <select value="{{ form.finalDestination }}" onChange="{{ ff.finalDestination }}" style="border:none; outline:none; font-family:inherit; font-size:11px; font-weight:400; width:55%; background:transparent;">
+            <option value="">Select</option>
+            <sc-for list="{{ finalDestinationOptions }}" as="opt" hint-placeholder-count="7">
+              <option value="{{ opt }}">{{ opt }}</option>
+            </sc-for>
+            <option value="__add_new__">+ Add New</option>
+          </select>
+          <sc-if value="{{ addingFinalDestination }}" hint-placeholder-val="{{ false }}">
+            <input type="text" placeholder="New destination" value="{{ newFinalDestinationText }}" onChange="{{ onNewFinalDestinationTextChange }}" style="border:1px solid #999; border-radius:4px; padding:2px 6px; font-size:11px; font-family:inherit; margin-left:4px;" />
+            <button onClick="{{ confirmAddFinalDestination }}" style="padding:2px 8px; border:none; background:#8C1D2E; color:#fff; border-radius:4px; font-size:10.5px; cursor:pointer; font-family:inherit;">Add</button>
+          </sc-if>
+        </div>
+        <div style="padding:5px 10px; font-size:11px; font-weight:700;">Shipping Method :
+          <select value="{{ form.shippingMethod }}" onChange="{{ ff.shippingMethod }}" style="border:none; outline:none; font-family:inherit; font-size:11px; font-weight:400; width:55%; background:transparent;">
+            <option value="">Select type</option>
+            <sc-for list="{{ shippingMethodOptions }}" as="opt" hint-placeholder-count="3">
+              <option value="{{ opt }}">{{ opt }}</option>
+            </sc-for>
+            <option value="__add_new__">+ Add New</option>
+          </select>
+          <sc-if value="{{ addingShippingMethod }}" hint-placeholder-val="{{ false }}">
+            <input type="text" placeholder="New method" value="{{ newShippingMethodText }}" onChange="{{ onNewShippingMethodTextChange }}" style="border:1px solid #999; border-radius:4px; padding:2px 6px; font-size:11px; font-family:inherit; margin-left:4px;" />
+            <button onClick="{{ confirmAddShippingMethod }}" style="padding:2px 8px; border:none; background:#8C1D2E; color:#fff; border-radius:4px; font-size:10.5px; cursor:pointer; font-family:inherit;">Add</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; border:2px solid #111; margin-bottom:8px;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:4px 8px; font-size:11px; border:1px solid #111;">Items Description</th>
+            <th style="text-align:center; padding:4px 8px; font-size:11px; border:1px solid #111; width:50px;">Qty.</th>
+            <sc-if value="{{ isNotAirShipment }}" hint-placeholder-val="{{ true }}">
+              <th style="text-align:right; padding:4px 8px; font-size:11px; border:1px solid #111; width:80px;">Unit Price</th>
+            </sc-if>
+            <sc-if value="{{ isAirShipment }}" hint-placeholder-val="{{ false }}">
+              <th style="text-align:right; padding:4px 8px; font-size:11px; border:1px solid #111; width:65px;">Weight (Kg)</th>
+              <th style="text-align:right; padding:4px 8px; font-size:11px; border:1px solid #111; width:65px;">Rate/Kg</th>
+            </sc-if>
+            <th style="text-align:right; padding:4px 8px; font-size:11px; border:1px solid #111; width:90px;">Amount OMR</th>
+            <th class="no-print" style="border:1px solid #111; width:26px;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ itemRows }}" as="row" hint-placeholder-count="5">
+            <tr>
+              <td style="padding:3px 7px; border:1px solid #111;">
+                <input type="text" list="invoiceDescriptions" value="{{ row.description }}" onChange="{{ row.onDescriptionChange }}" style="width:100%; border:none; outline:none; font-size:11px; font-family:inherit; background:transparent;" />
+              </td>
+              <td style="padding:3px 7px; border:1px solid #111; text-align:center;">
+                <input type="number" min="0" value="{{ row.qty }}" onChange="{{ row.onQtyChange }}" style="width:100%; text-align:center; border:none; outline:none; font-size:11px; font-family:inherit; background:transparent;" />
+              </td>
+              <sc-if value="{{ isNotAirShipment }}" hint-placeholder-val="{{ true }}">
+                <td style="padding:3px 7px; border:1px solid #111; text-align:right;">
+                  <input type="number" min="0" step="0.1" value="{{ row.unitPrice }}" onChange="{{ row.onUnitPriceChange }}" style="width:100%; text-align:right; border:none; outline:none; font-size:11px; font-family:inherit; background:transparent;" />
+                </td>
+              </sc-if>
+              <sc-if value="{{ isAirShipment }}" hint-placeholder-val="{{ false }}">
+                <td style="padding:3px 7px; border:1px solid #111; text-align:right;">
+                  <input type="number" min="0" step="0.1" value="{{ row.weight }}" onChange="{{ row.onWeightChange }}" style="width:100%; text-align:right; border:none; outline:none; font-size:11px; font-family:inherit; background:transparent;" />
+                </td>
+                <td style="padding:3px 7px; border:1px solid #111; text-align:right;">
+                  <input type="number" min="0" step="0.01" value="{{ row.rate }}" onChange="{{ row.onRateChange }}" style="width:100%; text-align:right; border:none; outline:none; font-size:11px; font-family:inherit; background:transparent;" />
+                </td>
+              </sc-if>
+              <td style="padding:3px 7px; border:1px solid #111; text-align:right; font-weight:600; font-size:11px;">{{ row.amountLabel }}</td>
+              <td class="no-print" style="text-align:center; border:1px solid #111;">
+                <button onClick="{{ row.remove }}" style="background:none; border:none; color:#C7A5AA; font-size:13px; cursor:pointer; font-family:inherit; padding:0;">&times;</button>
+              </td>
+            </tr>
+          </sc-for>
+          <tr>
+            <td style="padding:3px 7px; border:1px solid #111; font-weight:700; text-align:right; font-size:11px;">Total</td>
+            <td style="padding:3px 7px; border:1px solid #111; font-weight:700; text-align:center; font-size:11px;">{{ totalQtyLabel }}</td>
+            <sc-if value="{{ isNotAirShipment }}" hint-placeholder-val="{{ true }}">
+              <td style="padding:3px 7px; border:1px solid #111;"></td>
+            </sc-if>
+            <sc-if value="{{ isAirShipment }}" hint-placeholder-val="{{ false }}">
+              <td style="padding:3px 7px; border:1px solid #111; font-weight:700; text-align:right; font-size:11px;">{{ totalWeightLabel }}</td>
+              <td style="padding:3px 7px; border:1px solid #111;"></td>
+            </sc-if>
+            <td style="padding:3px 7px; border:1px solid #111; font-weight:700; text-align:right; font-size:11px;">{{ totalAmountLabel }}</td>
+            <td class="no-print" style="border:1px solid #111;"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; border:2px solid #111; border-radius:5px; margin-bottom:6px;">
+        <div style="padding:5px 10px; font-size:11px; font-weight:700; border-right:1px solid #111;">Discount (OMR) : <input type="number" min="0" step="0.1" value="{{ form.discount }}" onChange="{{ ff.discount }}" style="border:none; outline:none; font-family:inherit; font-size:11px; font-weight:400; width:100px; background:transparent;" /></div>
+        <div style="padding:5px 10px; font-size:11px; font-weight:700;">Net Amount : <span style="font-weight:800;">{{ netAmountLabel }}</span></div>
+      </div>
+
+      <div style="border:2px solid #111; border-radius:5px; margin-bottom:6px; padding:5px 10px; font-size:11px; font-weight:700;">Comments : <input type="text" placeholder="Optional — use when required" value="{{ form.comments }}" onChange="{{ ff.comments }}" style="border:none; outline:none; font-family:inherit; font-size:11px; font-weight:400; width:70%; background:transparent;" /></div>
+
+      <div style="border:2px solid #111; border-radius:5px; margin-bottom:6px; padding:5px 10px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+          <div style="font-size:11px; font-weight:700;">Payments</div>
+          <button onClick="{{ addPayment }}" class="no-print" style="padding:2px 10px; border:1px solid #8C1D2E; background:#fff; color:#8C1D2E; border-radius:4px; font-size:10px; font-weight:700; cursor:pointer; font-family:inherit;">+ Add Payment</button>
+        </div>
+        <sc-for list="{{ paymentRows }}" as="p" hint-placeholder-count="1">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px; font-size:10.5px; flex-wrap:wrap;">
+            <span style="color:#666; width:14px;">{{ p.index }}.</span>
+            <span>Paid Date:</span>
+            <input type="date" value="{{ p.date }}" onChange="{{ p.onDateChange }}" style="border:1px solid #ccc; border-radius:4px; padding:2px 5px; font-family:inherit; font-size:10.5px;" />
+            <span>Amount (OMR):</span>
+            <input type="number" min="0" step="0.1" value="{{ p.amount }}" onChange="{{ p.onAmountChange }}" style="border:1px solid #ccc; border-radius:4px; padding:2px 5px; font-family:inherit; font-size:10.5px; width:80px;" />
+            <span>Method:</span>
+            <select value="{{ p.method }}" onChange="{{ p.onMethodChange }}" style="border:1px solid #ccc; border-radius:4px; padding:2px 5px; font-family:inherit; font-size:10.5px;">
+              <option value="">Select</option>
+              <sc-for list="{{ paymentMethodOptions }}" as="opt" hint-placeholder-count="2">
+                <option value="{{ opt }}">{{ opt }}</option>
+              </sc-for>
+              <option value="__add_new__">+ Add New</option>
+            </select>
+            <sc-if value="{{ p.isAddingMethod }}" hint-placeholder-val="{{ false }}">
+              <input type="text" placeholder="New method" value="{{ newPaymentMethodText }}" onChange="{{ onNewPaymentMethodTextChange }}" style="border:1px solid #999; border-radius:4px; padding:2px 6px; font-size:10.5px; font-family:inherit;" />
+              <button onClick="{{ confirmAddPaymentMethod }}" style="padding:2px 8px; border:none; background:#8C1D2E; color:#fff; border-radius:4px; font-size:10px; cursor:pointer; font-family:inherit;">Add</button>
+            </sc-if>
+            <sc-if value="{{ p.canRemove }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ p.remove }}" class="no-print" style="background:none; border:none; color:#C7A5AA; font-size:13px; cursor:pointer; font-family:inherit; padding:0;">&times;</button>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; border-top:1px solid #111; margin-top:4px; padding-top:4px;">
+          <div style="font-size:11px; font-weight:700;">Total Paid : <span style="font-weight:800;">{{ totalPaidLabel }}</span></div>
+          <div style="font-size:11px; font-weight:700;">Balance : <span style="font-weight:800;">{{ balanceLabel }}</span></div>
+          <div style="font-size:11px; font-weight:700;">Status : <span style="font-weight:800;">{{ paymentStatusLabel }}</span></div>
+        </div>
+        <label class="no-print" style="display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11px; font-weight:600; color:#8C1D2E;">
+          <input type="checkbox" checked="{{ form.releasedUnpaid }}" onChange="{{ ff.releasedUnpaid }}" />
+          Release cargo without full payment
+        </label>
+        <div class="no-print" style="margin-top:8px; padding-top:8px; border-top:1px solid #ccc; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:10.5px; font-weight:700;">Bank Payment Receipt (if paid by bank):</span>
+          <input type="file" accept="image/*,.pdf" onChange="{{ onBankReceiptChange }}" class="no-print" style="font-size:10.5px;" />
+          <sc-if value="{{ form.bankReceiptName }}" hint-placeholder-val="{{ false }}">
+            <a href="{{ form.bankReceiptData }}" download="{{ form.bankReceiptName }}" style="font-size:10.5px; color:#8C1D2E; font-weight:600;">{{ form.bankReceiptName }}</a>
+            <button onClick="{{ clearBankReceipt }}" class="no-print" style="background:none; border:none; color:#9A9A9C; font-size:10.5px; cursor:pointer; font-family:inherit; padding:0;">Remove</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <div class="no-print" style="border:2px solid #111; border-radius:5px; padding:6px 10px; margin-bottom:6px;">
+        <div style="font-weight:700; font-size:11px; margin-bottom:4px;">Luggage Photo (optional)</div>
+        <div style="font-size:9.5px; color:#666; margin-bottom:4px;">Kept for 2 months for Air shipments, 6 months for Sea &mdash; deleted automatically after.</div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <input type="file" accept="image/*" capture="environment" onChange="{{ onLuggagePhotoChange }}" style="font-size:11px;" />
+          <sc-if value="{{ form.luggagePhotoData }}" hint-placeholder-val="{{ false }}">
+            <img src="{{ form.luggagePhotoData }}" style="width:54px; height:54px; object-fit:cover; border-radius:5px; border:1px solid #DCD9D3;" />
+            <button onClick="{{ clearLuggagePhoto }}" style="background:none; border:none; color:#9A9A9C; font-size:11px; cursor:pointer; font-family:inherit; padding:0;">Remove</button>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="border:2px solid #111; border-radius:5px; padding:6px 10px; margin-bottom:6px; background:#FAFAF9;">
+        <div style="font-weight:700; font-size:11px; margin-bottom:3px;">Bank Details</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:9.5px; line-height:1.4;">
+          <div>
+            <div>Bank Name: Bank Muscat</div>
+            <div>Account Name: East Africa Cargo LLC</div>
+            <div>Account No.: 0463054579010012</div>
+            <div>Mobile transfer: 94160014 &ndash; Suleiman Al Busaidi</div>
+          </div>
+          <div>
+            <div>Account Holder: East Africa Cargo LLC</div>
+            <div>Account Number: 023020069986</div>
+            <div>Bank Name: Sohar International</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:6px;">
+        <div>
+          <div style="font-weight:700; font-size:10.5px; margin-bottom:3px;">Regulations :</div>
+          <div style="font-size:7.5px; line-height:1.35; color:#222;">
+            1 - The consignee must check their parcel properly at the time of delivery and mention damage items, if any and then sign the document (receipt.) Otherwise no claim or reimbursement will be made.<br />
+            2 - Customer will be compensated for damaged or lost cargo according to the company&rsquo;s rules.<br />
+            3 - Circumstances beyond our control : Flight delay / cancelation / off load /embargo, strike or any natural calamities . Company is not responsible .<br />
+            4 - Liquid bottles / packs must be sealed properly &amp; tightly with adhesive tapes. No claim would be accepted for the loss/ damage of liquid cargoes / items . No Guarantee for Glass, Electronic items &amp; FRAGILE Goods/ Items.<br />
+            5 - Dear Customer , Company is not responsible for any shipment that has not been collected from the recipent within three months , whether payment has been made or not. Thank you.
+          </div>
+        </div>
+        <div style="direction:rtl; text-align:right;">
+          <div style="font-weight:700; font-size:10.5px; margin-bottom:3px;">kanuni :</div>
+          <div style="font-size:7.5px; line-height:1.4; color:#222;">
+            1- Mteja aangalie mzigo wake ipasavyo wakati wa kupokea na kama kuna kilichoharibika au kupungua toa taarifa hapo hapo na kusaini hati(risit) .Vinginevyo hakuna dai au malipo yatafanywa na Kampuni.<br />
+            2 - Mteja atalipwa fidia ya mzigo ulioharibika au kupotea kwa mujibu wa kanuni za Kampuni zilizowekwa.<br />
+            3 - Hali zilizonje ya uwezo wetu.. kucheleweshwa kwa safari ya ndege/Meli kutokana na mashirika ya ndege/meli au kwa majanga yeyote ya asili Kampuni haitawajibika kwa hayo..<br />
+            4 - Mizigo kama Vioo, chupa za maji,bidhaa za kielektronik,vitu vya umeme..ambavo mteja amefunga mzigo mwenyewe.. Kampuni haitakuwa na dhamana ya vitu hivo..<br />
+            5 - Kampuni haitawajibika tena kwa mzigo wowote ambao utakuwa umefika na bila kupokelewa kwa muda wa miezi mitatu...Ahsanteni.
+          </div>
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(90deg, #5C1220, #8C1D2E); color:#fff; border-radius:5px; padding:5px 10px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; font-size:9.5px; font-weight:700; margin-bottom:8px;">
+        <div>Dar Office : +255 734392099 / +255 784032077 / +255 674549801</div>
+        <div style="width:2px; background:#555; align-self:stretch;"></div>
+        <div style="text-align:right;">ZNZ Office : +255 772641491 / +255 774252043 / +255 779263154</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div>
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.3px; font-weight:600; margin-bottom:4px;">Office Rep. Sign</div>
+          <canvas ref="{{ officeSigRef }}" width="340" height="70" style="width:100%; max-width:300px; height:55px; border:1px solid #DCD9D3; border-radius:5px; background:#fff; touch-action:none; cursor:crosshair;"></canvas>
+          <div class="no-print" style="margin-top:4px;">
+            <button onClick="{{ clearOfficeSig }}" style="padding:4px 10px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:5px; font-size:10px; cursor:pointer; font-family:inherit;">Clear Signature</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:9px; color:#666; text-transform:uppercase; letter-spacing:0.3px; font-weight:600; margin-bottom:4px;">Customer Sign</div>
+          <canvas ref="{{ customerSigRef }}" width="340" height="70" style="width:100%; max-width:300px; height:55px; border:1px solid #DCD9D3; border-radius:5px; background:#fff; touch-action:none; cursor:crosshair;"></canvas>
+          <div class="no-print" style="margin-top:4px;">
+            <button onClick="{{ clearCustomerSig }}" style="padding:4px 10px; border:1px solid #DCD9D3; background:#fff; color:#6B6B6D; border-radius:5px; font-size:10px; cursor:pointer; font-family:inherit;">Clear Signature</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#111111">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#111111"/>
+    <text x="50" y="60" font-size="30" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">INV</text>
+  </svg>
+</template>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+function todayStr() { const d = new Date(); return d.toISOString().slice(0, 10); }
+function money(n) { const v = Number(n) || 0; return v.toFixed(v % 1 === 0 ? 0 : 2); }
+function formatPhone(raw, groups) {
+  const digits = (raw || '').replace(/\D/g, '');
+  let out = '';
+  let i = 0;
+  for (const g of groups) {
+    if (i >= digits.length) break;
+    out += (out ? ' ' : '') + digits.slice(i, i + g);
+    i += g;
+  }
+  if (i < digits.length) out += (out ? ' ' : '') + digits.slice(i);
+  return out;
+}
+function formatSenderPhone(raw) { return formatPhone(raw, [4, 4]); }
+function formatReceiverPhone(raw) { return formatPhone(raw, [4, 3, 3]); }
+const INVOICE_SEQ_KEY = 'eac_invoice_next_seq_v1';
+const INVOICE_HISTORY_KEY = 'eac_invoice_history_v1';
+const INVOICE_CUSTOMERS_KEY = 'eac_invoice_customers_v1';
+const INVOICE_DESCRIPTIONS_KEY = 'eac_invoice_descriptions_v1';
+function loadCustomers() {
+  try { const raw = localStorage.getItem(INVOICE_CUSTOMERS_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function saveCustomer(name, phone) {
+  if (!name) return;
+  try {
+    const list = loadCustomers();
+    const idx = list.findIndex(c => c.name.toLowerCase() === name.toLowerCase());
+    if (idx !== -1) { if (phone) list[idx].phone = phone; } else list.push({ name, phone: phone || '' });
+    localStorage.setItem(INVOICE_CUSTOMERS_KEY, JSON.stringify(list));
+  } catch (e) {}
+}
+function findCustomerName(phone) {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.length < 6) return '';
+  const list = loadCustomers();
+  const match = list.find(c => (c.phone || '').replace(/\D/g, '') === digits);
+  return match ? match.name : '';
+}
+function findCustomerPhone(name) {
+  const list = loadCustomers();
+  const match = list.find(c => c.name.toLowerCase() === (name || '').toLowerCase());
+  return match ? match.phone : '';
+}
+function loadDescriptions() {
+  try { const raw = localStorage.getItem(INVOICE_DESCRIPTIONS_KEY); return raw ? JSON.parse(raw) : []; } catch (e) { return []; }
+}
+function saveDescription(desc) {
+  if (!desc) return;
+  try {
+    const list = loadDescriptions();
+    if (!list.some(d => d.toLowerCase() === desc.toLowerCase())) { list.push(desc); localStorage.setItem(INVOICE_DESCRIPTIONS_KEY, JSON.stringify(list)); }
+  } catch (e) {}
+}
+function addMonths(date, n) { const d = new Date(date); d.setMonth(d.getMonth() + n); return d; }
+function purgeExpiredLuggagePhotos() {
+  try {
+    const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+    if (!raw) return;
+    const history = JSON.parse(raw);
+    const now = Date.now();
+    let changed = false;
+    Object.keys(history).forEach(key => {
+      const rec = history[key];
+      if (rec.form && rec.form.luggagePhotoData && rec.form.luggagePhotoExpiresAt && new Date(rec.form.luggagePhotoExpiresAt).getTime() < now) {
+        rec.form.luggagePhotoData = ''; rec.form.luggagePhotoName = '';
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(history));
+    const dataRaw = localStorage.getItem('eac_dashboard_data_v1');
+    if (dataRaw) {
+      const data = JSON.parse(dataRaw);
+      let dChanged = false;
+      (data.shipments || []).forEach(sh => {
+        if (sh.luggagePhotoData && sh.luggagePhotoExpiresAt && new Date(sh.luggagePhotoExpiresAt).getTime() < now) {
+          sh.luggagePhotoData = ''; sh.luggagePhotoName = '';
+          dChanged = true;
+        }
+      });
+      if (dChanged) localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(data));
+    }
+  } catch (e) {}
+}
+const DASHBOARD_USERS = [
+  { username: 'admin', name: 'Admin' }, { username: 'seif.t', name: 'Seif Thabit' },
+  { username: 'nasser', name: 'Nasser' }, { username: 'nassor', name: 'Nassor' },
+  { username: 'suleiman', name: 'Suleiman' }, { username: 'fazal', name: 'Fazal' }, { username: 'mussa', name: 'Mussa' }
+];
+function getLoggedInTeamName() {
+  try {
+    const raw = localStorage.getItem('eac_dashboard_session_v1');
+    if (!raw) return '';
+    const session = JSON.parse(raw);
+    const match = DASHBOARD_USERS.find(u => u.username === session.username);
+    return match ? match.name : '';
+  } catch (e) { return ''; }
+}
+function readSeq() {
+  let seq = 1;
+  try {
+    const raw = localStorage.getItem(INVOICE_SEQ_KEY);
+    if (raw) seq = parseInt(raw, 10) || 1;
+  } catch (e) {}
+  return seq;
+}
+function formatInvoiceNo(globalSeq) {
+  const letterIndex = Math.floor((globalSeq - 1) / 99999);
+  const numberPart = ((globalSeq - 1) % 99999) + 1;
+  const letter = String.fromCharCode(65 + letterIndex);
+  return 'EAC-' + String(numberPart).padStart(5, '0') + letter;
+}
+function peekNextInvoiceNo() { return formatInvoiceNo(readSeq()); }
+function commitInvoiceNo(invoiceNo) {
+  const match = /^EAC-(\d+)([A-Z])$/.exec(invoiceNo || '');
+  if (!match) return;
+  const numberPart = parseInt(match[1], 10);
+  const letterIndex = match[2].charCodeAt(0) - 65;
+  const usedSeq = letterIndex * 99999 + numberPart;
+  const current = readSeq();
+  if (usedSeq >= current) {
+    try { localStorage.setItem(INVOICE_SEQ_KEY, String(usedSeq + 1)); } catch (e) {}
+  }
+}
+
+class Component extends DCLogic {
+  state = {
+    form: {
+      invoiceNo: peekNextInvoiceNo(), date: todayStr(), senderName: '', senderPhone: '', receiverName: '', receiverPhone: '',
+      destination: '', finalDestination: '', location: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false,
+      bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '', batchId: '', batchLabel: ''
+    },
+    shipmentBatches: { Sea: [], AirExpress: [], AirNormal: [] },
+    activeShipmentBatchId: { Sea: '', AirExpress: '', AirNormal: '' },
+    items: [{ id: 'r1', description: '', qty: '', unitPrice: '', weight: '', rate: '' }],
+    payments: [{ id: 'p1', date: '', amount: '', method: '' }],
+    historySearch: '',
+    historyNotFound: false,
+    paymentToast: '',
+    recentInvoices: [],
+    finalDestinations: ['Singida', 'Kigoma', 'Uganda', 'Mombasa', 'Mwanza', 'Geita', 'Mbeya'],
+    locations: ['Amrat', 'Mabela', 'Al Hail', 'Al Mawaleh', 'Wadi Kabir', 'Ruwi', 'Matrah', 'Seeb'],
+    addingLocation: false,
+    newLocationText: '',
+    addingFinalDestination: false,
+    newFinalDestinationText: '',
+    destinations: ['ZNZ', 'Dar', 'Pemba'],
+    addingDestination: false,
+    newDestinationText: '',
+    shippingMethods: ['Sea Freight', 'Air - Normal Cargo', 'Air - Express Cargo'],
+    addingShippingMethod: false,
+    newShippingMethodText: '',
+    paymentMethods: ['Cash', 'Bank'],
+    addingPaymentMethodIdx: null,
+    newPaymentMethodText: ''
+  };
+
+  officeCanvas = null;
+  customerCanvas = null;
+  mabelaQrCanvas = null;
+  amratQrCanvas = null;
+  trackingQrCanvas = null;
+  drawingState = { office: false, customer: false };
+
+  componentDidMount() {
+    this.setupSignaturePad('office');
+    this.setupSignaturePad('customer');
+    this.renderLocationQrs();
+    this.renderTrackingQr();
+    purgeExpiredLuggagePhotos();
+    this.loadBatches();
+    this.refreshRecentInvoices();
+    this._batchFocus = () => this.loadBatches();
+    window.addEventListener('focus', this._batchFocus);
+  }
+  componentWillUnmount() {
+    if (this._batchFocus) window.removeEventListener('focus', this._batchFocus);
+  }
+  loadBatches() {
+    try {
+      const raw = localStorage.getItem('eac_dashboard_data_v1');
+      const data = raw ? JSON.parse(raw) : {};
+      const sb = data.shipmentBatches;
+      if (!sb) return;
+      this.setState({
+        shipmentBatches: {
+          Sea: sb.Sea || [], AirExpress: sb.AirExpress || [], AirNormal: sb.AirNormal || []
+        },
+        activeShipmentBatchId: data.activeShipmentBatchId || { Sea: '', AirExpress: '', AirNormal: '' }
+      }, () => this.ensureBatchDefault());
+    } catch (e) {}
+  }
+  batchCategory(method) {
+    const m = (method || '').toLowerCase();
+    if (m.indexOf('sea') !== -1) return 'Sea';
+    if (m.indexOf('express') !== -1) return 'AirExpress';
+    if (m.indexOf('air') !== -1) return 'AirNormal';
+    return null;
+  }
+  currentBatchList() {
+    const cat = this.batchCategory(this.state.form.shippingMethod);
+    return cat ? (this.state.shipmentBatches[cat] || []) : [];
+  }
+  ensureBatchDefault() {
+    const cat = this.batchCategory(this.state.form.shippingMethod);
+    if (!cat) return;
+    const list = this.state.shipmentBatches[cat] || [];
+    const current = this.state.form.batchId;
+    if (current && list.some(b => b.id === current)) return;
+    const activeId = (this.state.activeShipmentBatchId || {})[cat];
+    const pick = list.find(b => b.id === activeId) || list.filter(b => b.status === 'Open')[0] || list[0];
+    if (pick) this.setState(s => ({ form: { ...s.form, batchId: pick.id, batchLabel: pick.label } }));
+  }
+
+  renderLocationQrs() {
+    if (!window.QRCode) return;
+    if (this.mabelaQrCanvas && !this.mabelaQrCanvas.dataset.drawn) {
+      this.mabelaQrCanvas.dataset.drawn = '1';
+      window.QRCode.toCanvas(this.mabelaQrCanvas, 'https://maps.app.goo.gl/mQtE3aKaqxLRfk2y5?g_st=ac', { width: 70, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+    }
+    if (this.amratQrCanvas && !this.amratQrCanvas.dataset.drawn) {
+      this.amratQrCanvas.dataset.drawn = '1';
+      window.QRCode.toCanvas(this.amratQrCanvas, 'https://maps.app.goo.gl/pgqTDAAFGqJixopg9', { width: 70, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+    }
+  }
+
+  setupSignaturePad(which) {
+    const canvas = which === 'office' ? this.officeCanvas : this.customerCanvas;
+    if (!canvas || canvas.dataset.wired) return;
+    canvas.dataset.wired = '1';
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const p = e.touches ? e.touches[0] : e;
+      return { x: (p.clientX - rect.left) * scaleX, y: (p.clientY - rect.top) * scaleY };
+    };
+    const start = (e) => { e.preventDefault(); this.drawingState[which] = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); };
+    const move = (e) => { if (!this.drawingState[which]) return; e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); };
+    const end = () => { this.drawingState[which] = false; };
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  }
+
+  clearCanvas(which) {
+    const canvas = which === 'office' ? this.officeCanvas : this.customerCanvas;
+    if (!canvas) return;
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  onBankReceiptChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => this.setState(s => ({ form: { ...s.form, bankReceiptName: file.name, bankReceiptData: reader.result } }));
+    reader.readAsDataURL(file);
+  };
+  clearBankReceipt = () => this.setState(s => ({ form: { ...s.form, bankReceiptName: '', bankReceiptData: '' } }));
+  onLuggagePhotoChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => this.setState(s => ({ form: { ...s.form, luggagePhotoName: file.name, luggagePhotoData: reader.result } }));
+    reader.readAsDataURL(file);
+  };
+  clearLuggagePhoto = () => this.setState(s => ({ form: { ...s.form, luggagePhotoName: '', luggagePhotoData: '' } }));
+  updateField(field, value) { this.setState(s => ({ form: { ...s.form, [field]: value } })); }
+  onLocationChange = (e) => {
+    if (e.target.value === '__add_new__') { this.setState({ addingLocation: true }); return; }
+    this.updateField('location', e.target.value);
+  };
+  onNewLocationTextChange = (e) => this.setState({ newLocationText: e.target.value });
+  confirmAddLocation = () => {
+    const name = (this.state.newLocationText || '').trim();
+    if (!name) return;
+    this.setState(s => ({
+      locations: s.locations.some(l => l.toLowerCase() === name.toLowerCase()) ? s.locations : [...s.locations, name],
+      form: { ...s.form, location: name },
+      addingLocation: false, newLocationText: ''
+    }));
+  };
+  onDestinationChange = (e) => {
+    if (e.target.value === '__add_new__') { this.setState({ addingDestination: true }); return; }
+    this.updateField('destination', e.target.value);
+  };
+  onNewDestinationTextChange = (e) => this.setState({ newDestinationText: e.target.value });
+  confirmAddDestination = () => {
+    const name = (this.state.newDestinationText || '').trim();
+    if (!name) return;
+    this.setState(s => ({
+      destinations: s.destinations.some(d => d.toLowerCase() === name.toLowerCase()) ? s.destinations : [...s.destinations, name],
+      form: { ...s.form, destination: name },
+      addingDestination: false, newDestinationText: ''
+    }));
+  };
+  onShippingMethodChange = (e) => {
+    if (e.target.value === '__add_new__') { this.setState({ addingShippingMethod: true }); return; }
+    this.setState(s => ({ form: { ...s.form, shippingMethod: e.target.value, batchId: '', batchLabel: '' } }), () => this.ensureBatchDefault());
+  };
+  onNewShippingMethodTextChange = (e) => this.setState({ newShippingMethodText: e.target.value });
+  confirmAddShippingMethod = () => {
+    const name = (this.state.newShippingMethodText || '').trim();
+    if (!name) return;
+    this.setState(s => ({
+      shippingMethods: s.shippingMethods.some(m => m.toLowerCase() === name.toLowerCase()) ? s.shippingMethods : [...s.shippingMethods, name],
+      form: { ...s.form, shippingMethod: name },
+      addingShippingMethod: false, newShippingMethodText: ''
+    }));
+  };
+  onFinalDestinationChange = (e) => {
+    if (e.target.value === '__add_new__') { this.setState({ addingFinalDestination: true }); return; }
+    this.updateField('finalDestination', e.target.value);
+  };
+  onNewFinalDestinationTextChange = (e) => this.setState({ newFinalDestinationText: e.target.value });
+  confirmAddFinalDestination = () => {
+    const name = (this.state.newFinalDestinationText || '').trim();
+    if (!name) return;
+    this.setState(s => ({
+      finalDestinations: s.finalDestinations.some(d => d.toLowerCase() === name.toLowerCase()) ? s.finalDestinations : [...s.finalDestinations, name],
+      form: { ...s.form, finalDestination: name },
+      addingFinalDestination: false, newFinalDestinationText: ''
+    }));
+  };
+  updatePayment(idx, field, value) {
+    if (field === 'amount') {
+      const netAmount = Math.max(0, this.state.items.reduce((a, it) => a + (this.isAirNow() ? (Number(it.weight) || 0) * (Number(it.rate) || 0) : (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0) - (Number(this.state.form.discount) || 0));
+      const otherPaid = this.state.payments.reduce((a, p, i) => i === idx ? a : a + (Number(p.amount) || 0), 0);
+      const maxAllowed = Math.max(0, netAmount - otherPaid);
+      const requested = Number(value) || 0;
+      if (requested > maxAllowed) {
+        window.alert('This amount exceeds the remaining balance (OMR ' + maxAllowed.toFixed(2) + '). Payment capped to the invoice amount.');
+        value = String(maxAllowed);
+      }
+    }
+    this.setState(s => ({ payments: s.payments.map((p, i) => i === idx ? { ...p, [field]: value } : p) }), () => {
+      const p = this.state.payments[idx] || {};
+      const amt = Number(p.amount) || 0;
+      const m = (p.method || '').toLowerCase();
+      const isCashOrBank = m.indexOf('cash') !== -1 || m.indexOf('bank') !== -1 || m.indexOf('transfer') !== -1;
+      if (amt > 0 && isCashOrBank && (field === 'amount' || field === 'method')) this.showPaymentToast(p.method, amt);
+    });
+  }
+  showPaymentToast(method, amount) {
+    const msg = 'Money received \u2014 OMR ' + Number(amount).toFixed(2) + ' by ' + method + ' recorded on invoice ' + (this.state.form.invoiceNo || '');
+    this.setState({ paymentToast: msg });
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => this.setState({ paymentToast: '' }), 4000);
+  }
+  isAirNow() { return (this.state.form.shippingMethod || '').toLowerCase().indexOf('air') !== -1; }
+  onPaymentMethodChange(idx, e) {
+    if (e.target.value === '__add_new__') { this.setState({ addingPaymentMethodIdx: idx }); return; }
+    this.updatePayment(idx, 'method', e.target.value);
+  }
+  onNewPaymentMethodTextChange = (e) => this.setState({ newPaymentMethodText: e.target.value });
+  confirmAddPaymentMethod = () => {
+    const name = (this.state.newPaymentMethodText || '').trim();
+    if (!name) return;
+    const idx = this.state.addingPaymentMethodIdx;
+    this.setState(s => ({
+      paymentMethods: s.paymentMethods.some(m => m.toLowerCase() === name.toLowerCase()) ? s.paymentMethods : [...s.paymentMethods, name],
+      payments: s.payments.map((p, i) => i === idx ? { ...p, method: name } : p),
+      addingPaymentMethodIdx: null, newPaymentMethodText: ''
+    }));
+  };
+  addPayment = () => this.setState(s => ({ payments: [...s.payments, { id: 'p' + Date.now(), date: '', amount: '', method: '' }] }));
+  removePayment(idx) {
+    this.setState(s => ({ payments: s.payments.length > 1 ? s.payments.filter((p, i) => i !== idx) : s.payments }));
+  }
+  updateItem(id, field, value) { this.setState(s => ({ items: s.items.map(it => it.id === id ? { ...it, [field]: value } : it) })); }
+  addItem = () => this.setState(s => ({ items: [...s.items, { id: 'r' + Date.now(), description: '', qty: '', unitPrice: '', weight: '', rate: '' }] }));
+  removeItem(id) { this.setState(s => ({ items: s.items.length > 1 ? s.items.filter(it => it.id !== id) : s.items })); }
+  saveToHistory() {
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      const prev = history[this.state.form.invoiceNo] || {};
+      history[this.state.form.invoiceNo] = {
+        ...prev,
+        form: this.state.form, items: this.state.items, payments: this.state.payments, savedAt: new Date().toISOString(),
+        cancelled: !!this.state.form.cancelled,
+        cancelledBy: this.state.form.cancelledBy || prev.cancelledBy || '',
+        cancelledReason: this.state.form.cancelledReason || prev.cancelledReason || '',
+        cancelledAt: this.state.form.cancelledAt || prev.cancelledAt || ''
+      };
+      localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {}
+    commitInvoiceNo(this.state.form.invoiceNo);
+    this.refreshRecentInvoices();
+    saveCustomer(this.state.form.senderName, this.state.form.senderPhone);
+    saveCustomer(this.state.form.receiverName, this.state.form.receiverPhone);
+    this.state.items.forEach(it => saveDescription(it.description));
+    this.syncToShipments();
+  }
+  syncToShipments() {
+    try {
+      const f = this.state.form;
+      if (!f.invoiceNo) return;
+      const raw = localStorage.getItem('eac_dashboard_data_v1');
+      const data = raw ? JSON.parse(raw) : {};
+      const shipments = Array.isArray(data.shipments) ? data.shipments : [];
+      const method = (f.shippingMethod || '').toLowerCase();
+      const isAir = method.indexOf('air') !== -1;
+      const totalCost = this.state.items.reduce((a, it) => a + (isAir ? (Number(it.weight) || 0) * (Number(it.rate) || 0) : (Number(it.qty) || 0) * (Number(it.unitPrice) || 0)), 0);
+      const totalWeight = this.state.items.reduce((a, it) => a + (Number(it.weight) || 0), 0);
+      const totalPaid = this.state.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+      const netCost = Math.max(0, totalCost - (Number(f.discount) || 0));
+      const paymentStatus = totalPaid >= netCost && netCost > 0 ? 'Paid' : (f.releasedUnpaid ? 'Released - Not Paid' : (totalPaid <= 0 ? 'Not Paid' : 'Partial'));
+      const isSea = method.indexOf('sea') !== -1;
+      const retentionMonths = isAir ? 2 : (isSea ? 6 : null);
+      let type = '';
+      if (method.indexOf('sea') !== -1) type = 'Sea Freight';
+      else if (method.indexOf('express') !== -1) type = 'Air - Express Cargo';
+      else if (method.indexOf('air') !== -1) type = 'Air - Normal Cargo';
+      const description = this.state.items.map(it => it.description).filter(Boolean).join(', ');
+      const existingIdx = shipments.findIndex(s => (s.invoiceNo || '').toLowerCase() === f.invoiceNo.toLowerCase());
+      const base = existingIdx !== -1 ? shipments[existingIdx] : {
+        id: 'inv-' + f.invoiceNo, batchId: null, batchLabel: '', status: 'Received At Origin Facility',
+        location: '', mainDestination: '', weight: '', documentName: '', documentData: ''
+      };
+      const luggagePhotoExpiresAt = f.luggagePhotoData && retentionMonths ? addMonths(new Date(), retentionMonths).toISOString() : (base.luggagePhotoExpiresAt || '');
+      const chosenBatch = this.currentBatchList().find(b => b.id === f.batchId);
+      const merged = {
+        ...base,
+        batchId: chosenBatch ? chosenBatch.id : (base.batchId || null),
+        batchLabel: chosenBatch ? chosenBatch.label : (base.batchLabel || ''),
+        invoiceNo: f.invoiceNo, date: f.date, senderName: f.senderName, senderPhone: f.senderPhone,
+        receiverName: f.receiverName, receiverPhone: f.receiverPhone, mainDestination: f.destination, destination: f.finalDestination || base.destination || '',
+        location: f.location || base.location || '',
+        type: type || base.type || '', description: description || base.description || '',
+        weight: isAir ? (totalWeight || base.weight || '') : (base.weight || ''),
+        cost: netCost,
+        amountCollected: totalPaid, paymentStatus, teamMember: getLoggedInTeamName() || base.teamMember || '',
+        paymentUpdatedBy: getLoggedInTeamName() || base.paymentUpdatedBy || '', paymentUpdatedAt: new Date().toISOString(),
+        paymentUpdatedByMethod: (() => {
+          const map = { ...(base.paymentUpdatedByMethod || {}) };
+          const by = getLoggedInTeamName() || 'Unknown';
+          const at = new Date().toISOString();
+          this.state.payments.filter(p => p.method && Number(p.amount) > 0).forEach(p => { map[p.method] = { by, at }; });
+          return map;
+        })(),
+        payments: this.state.payments.filter(p => p.amount).map(p => ({ id: p.id, method: p.method || '', amount: Number(p.amount) || 0, date: p.date || '' })),
+        paidDate: this.state.payments.filter(p => p.date).map(p => p.date).sort().slice(-1)[0] || base.paidDate || '',
+        bankReceiptName: f.bankReceiptName || base.bankReceiptName || '', bankReceiptData: f.bankReceiptData || base.bankReceiptData || '',
+        luggagePhotoName: f.luggagePhotoName || base.luggagePhotoName || '', luggagePhotoData: f.luggagePhotoData || base.luggagePhotoData || '',
+        luggagePhotoExpiresAt,
+        pieceLines: (() => {
+          const lines = this.state.items.filter(it => it.description && it.description.toLowerCase().indexOf('packing') === -1).map(it => ({ id: it.id, label: it.description, qty: Number(it.qty) || 1 }));
+          return lines.length ? lines : (base.pieceLines || []);
+        })(),
+        paymentMethod: this.state.payments.filter(p => p.method).map(p => p.method + ' OMR ' + money(Number(p.amount) || 0) + (p.date ? (' on ' + p.date) : '')).join(', ') || base.paymentMethod || ''
+      };
+      if (existingIdx !== -1) shipments[existingIdx] = merged; else shipments.unshift(merged);
+      data.shipments = shipments;
+      this.syncCashPaymentsToReceiptCollections(data, f, method);
+      localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(data));
+    } catch (e) { /* ignore */ }
+  }
+  syncCashPaymentsToReceiptCollections(data, f, method) {
+    let receiptCollections = Array.isArray(data.receiptCollections) ? data.receiptCollections : [];
+    const shipmentType = method.indexOf('sea') !== -1 ? 'Sea Freight' : method.indexOf('express') !== -1 ? 'Air - Express Cargo' : method.indexOf('air') !== -1 ? 'Air - Normal Cargo' : '';
+    const cashPayments = this.state.payments.filter(p => (p.method || '').toLowerCase() === 'cash' && Number(p.amount) > 0 && p.date);
+    receiptCollections = receiptCollections.filter(rc => !(rc.invoiceNo === f.invoiceNo && rc.autoFromInvoice));
+    cashPayments.forEach((p, i) => {
+      receiptCollections.unshift({
+        id: 'rc-inv-' + f.invoiceNo + '-' + i, date: p.date, shipmentType, receiptNo: f.invoiceNo,
+        amount: Number(p.amount) || 0, invoiceNo: f.invoiceNo, autoFromInvoice: true,
+        batchId: null, batchLabel: ''
+      });
+    });
+    data.receiptCollections = receiptCollections;
+  }
+  printWithInvoiceTitle() {
+    const prevTitle = document.title;
+    document.title = (this.state.form.invoiceNo || 'East Africa Cargo Invoice');
+    window.print();
+    setTimeout(() => { document.title = prevTitle; }, 1000);
+  }
+  printInvoice = () => { this.saveToHistory(); this.printWithInvoiceTitle(); };
+  saveAsPdf = () => { this.saveToHistory(); this.printWithInvoiceTitle(); };
+  onHistorySearchChange = (e) => this.setState({ historySearch: e.target.value, historyNotFound: false });
+  refreshRecentInvoices() {
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      const list = Object.keys(history).map(k => {
+        const rec = history[k] || {};
+        const fm = rec.form || {};
+        return {
+          number: k, savedAt: rec.savedAt || '', cancelled: !!rec.cancelled,
+          who: fm.receiverName || fm.senderName || '', date: fm.date || ''
+        };
+      }).sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)).slice(0, 8);
+      this.setState({ recentInvoices: list });
+    } catch (e) {}
+  }
+  loadInvoiceByNumber(num) {
+    if (!num) return;
+    this.setState({ historySearch: num }, () => this.loadInvoiceFromHistory());
+  }
+  loadInvoiceFromHistory = () => {
+    const num = (this.state.historySearch || '').trim();
+    if (!num) return;
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      const key = Object.keys(history).find(k => k.toLowerCase() === num.toLowerCase());
+      if (!key) { this.setState({ historyNotFound: true }); return; }
+      const rec = history[key];
+      const form = { ...rec.form, cancelled: !!rec.cancelled, cancelledBy: rec.cancelledBy || '', cancelledReason: rec.cancelledReason || '', cancelledAt: rec.cancelledAt || '' };
+      try {
+        const dRaw = localStorage.getItem('eac_dashboard_data_v1');
+        const dData = dRaw ? JSON.parse(dRaw) : {};
+        const sh = (dData.shipments || []).find(x => (x.invoiceNo || '').toLowerCase() === key.toLowerCase());
+        if (sh && sh.batchId) { form.batchId = sh.batchId; form.batchLabel = sh.batchLabel || ''; }
+      } catch (e2) {}
+      this.setState({ form, items: rec.items, payments: rec.payments, historyNotFound: false }, () => { this.renderTrackingQr(true); this.ensureBatchDefault(); });
+    } catch (e) { this.setState({ historyNotFound: true }); }
+  };
+  cancelCurrentInvoice = () => {
+    const num = this.state.form.invoiceNo;
+    if (!num) return;
+    const who = (window.prompt('Cancel invoice ' + num + '?\n\nThe invoice is kept and stays searchable, marked CANCELLED.\n\nEnter your name (this is recorded):') || '').trim();
+    if (!who) return;
+    const reason = (window.prompt('Reason for cancelling (optional):') || '').trim();
+    const stamp = { cancelled: true, cancelledBy: who, cancelledReason: reason, cancelledAt: new Date().toLocaleString() };
+    this.saveToHistory();
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      const key = Object.keys(history).find(k => k.toLowerCase() === num.toLowerCase());
+      if (key) { history[key] = { ...history[key], ...stamp }; localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(history)); }
+      const dRaw = localStorage.getItem('eac_dashboard_data_v1');
+      if (dRaw) {
+        const data = JSON.parse(dRaw);
+        if (Array.isArray(data.shipments)) {
+          data.shipments = data.shipments.map(s => (s.invoiceNo || '').toLowerCase() === num.toLowerCase() ? { ...s, ...stamp } : s);
+          localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(data));
+        }
+      }
+    } catch (e) {}
+    this.setState(s => ({ form: { ...s.form, ...stamp } }));
+  };
+  restoreCurrentInvoice = () => {
+    const num = this.state.form.invoiceNo;
+    if (!num) return;
+    if (!window.confirm('Restore invoice ' + num + ' to active?')) return;
+    const stamp = { cancelled: false, restoredAt: new Date().toLocaleString() };
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      const key = Object.keys(history).find(k => k.toLowerCase() === num.toLowerCase());
+      if (key) { history[key] = { ...history[key], ...stamp }; localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(history)); }
+      const dRaw = localStorage.getItem('eac_dashboard_data_v1');
+      if (dRaw) {
+        const data = JSON.parse(dRaw);
+        if (Array.isArray(data.shipments)) {
+          data.shipments = data.shipments.map(s => (s.invoiceNo || '').toLowerCase() === num.toLowerCase() ? { ...s, cancelled: false, restoredAt: stamp.restoredAt } : s);
+          localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(data));
+        }
+      }
+    } catch (e) {}
+    this.setState(s => ({ form: { ...s.form, ...stamp } }));
+  };
+  saveAndNext = () => {
+    this.saveToHistory();
+    this.setState({
+      form: { invoiceNo: peekNextInvoiceNo(), date: todayStr(), senderName: '', senderPhone: '', receiverName: '', receiverPhone: '', destination: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false, bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '' },
+      items: [{ id: 'r' + Date.now(), description: '', qty: '', unitPrice: '', weight: '', rate: '' }],
+      payments: [{ id: 'p' + Date.now(), date: '', amount: '', method: '' }]
+    }, () => this.renderTrackingQr(true));
+  };
+  startNewInvoice = () => {
+    if (!window.confirm('Start a new invoice? Unsaved changes on this one will be cleared.')) return;
+    this.saveToHistory();
+    this.setState({
+      form: { invoiceNo: peekNextInvoiceNo(), date: todayStr(), senderName: '', senderPhone: '', receiverName: '', receiverPhone: '', destination: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false, bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '' },
+      items: [{ id: 'r' + Date.now(), description: '', qty: '', unitPrice: '' }],
+      payments: [{ id: 'p' + Date.now(), date: '', amount: '', method: '' }]
+    }, () => this.renderTrackingQr(true));
+  };
+  renderTrackingQr(force) {
+    if (!this.trackingQrCanvas || !window.QRCode) return;
+    if (!force && this.trackingQrCanvas.dataset.drawnFor === this.state.form.invoiceNo) return;
+    this.trackingQrCanvas.dataset.drawnFor = this.state.form.invoiceNo;
+    const url = window.location.origin + window.location.pathname.replace(/Invoice\.dc\.html$/, 'Track Shipment.dc.html') + '?inv=' + encodeURIComponent(this.state.form.invoiceNo || '');
+    window.QRCode.toCanvas(this.trackingQrCanvas, url, { width: 56, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+  }
+  shareToWhatsApp = () => {
+    try { this.saveToHistory(); } catch (e) {}
+    const f = this.state.form;
+    const text = 'East Africa Cargo \u2014 Invoice ' + f.invoiceNo + '\nDate: ' + f.date +
+      (f.batchLabel ? ('\nBatch: ' + f.batchLabel) : '') +
+      '\nCustomer: ' + (f.receiverName || f.senderName || '') +
+      '\nPlease find the invoice attached (use Print > Save as PDF, then attach it here).';
+    const url = 'https://wa.me/?text=' + encodeURIComponent(text);
+    const openLink = () => {
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {
+        try { window.open(url, '_blank'); } catch (e2) { window.location.href = url; }
+      }
+    };
+    try {
+      if (navigator.share && window.self === window.top) {
+        const p = navigator.share({ title: 'East Africa Cargo Invoice ' + f.invoiceNo, text });
+        if (p && p.catch) p.catch(() => openLink());
+        return;
+      }
+    } catch (e) {}
+    openLink();
+  };
+
+  renderVals() {
+    const isAir = (this.state.form.shippingMethod || '').toLowerCase().indexOf('air') !== -1;
+    const rowAmount = (it) => isAir ? (Number(it.weight) || 0) * (Number(it.rate) || 0) : (Number(it.qty) || 0) * (Number(it.unitPrice) || 0);
+    const itemRows = this.state.items.map(it => ({
+      ...it,
+      amountLabel: money(rowAmount(it)),
+      onDescriptionChange: (e) => this.updateItem(it.id, 'description', e.target.value),
+      onQtyChange: (e) => this.updateItem(it.id, 'qty', e.target.value),
+      onUnitPriceChange: (e) => this.updateItem(it.id, 'unitPrice', e.target.value),
+      onWeightChange: (e) => this.updateItem(it.id, 'weight', e.target.value),
+      onRateChange: (e) => this.updateItem(it.id, 'rate', e.target.value),
+      remove: () => this.removeItem(it.id)
+    }));
+    const totalAmount = this.state.items.reduce((a, it) => a + rowAmount(it), 0);
+    const totalWeight = this.state.items.reduce((a, it) => a + (Number(it.weight) || 0), 0);
+
+    return {
+      form: this.state.form,
+      ff: {
+        invoiceNo: (e) => this.updateField('invoiceNo', e.target.value),
+        date: (e) => this.updateField('date', e.target.value),
+        senderName: (e) => {
+          const v = e.target.value;
+          const phone = findCustomerPhone(v);
+          this.setState(s => ({ form: { ...s.form, senderName: v, senderPhone: (phone && !s.form.senderPhone) ? phone : s.form.senderPhone } }));
+        },
+        senderPhone: (e) => {
+          const digits = e.target.value.replace(/\D/g, '');
+          const name = findCustomerName(digits);
+          this.setState(s => ({ form: { ...s.form, senderPhone: digits, senderName: (name && !s.form.senderName) ? name : s.form.senderName } }));
+        },
+        receiverName: (e) => {
+          const v = e.target.value;
+          const phone = findCustomerPhone(v);
+          this.setState(s => ({ form: { ...s.form, receiverName: v, receiverPhone: (phone && !s.form.receiverPhone) ? phone : s.form.receiverPhone } }));
+        },
+        receiverPhone: (e) => {
+          const digits = e.target.value.replace(/\D/g, '');
+          const name = findCustomerName(digits);
+          this.setState(s => ({ form: { ...s.form, receiverPhone: digits, receiverName: (name && !s.form.receiverName) ? name : s.form.receiverName } }));
+        },
+        destination: (e) => this.updateField('destination', e.target.value),
+        batchId: (e) => {
+          const b = this.currentBatchList().find(x => x.id === e.target.value);
+          this.setState(s => ({ form: { ...s.form, batchId: e.target.value, batchLabel: b ? b.label : '' } }));
+        },
+        shippingMethod: (e) => this.onShippingMethodChange(e),
+        comments: (e) => this.updateField('comments', e.target.value),
+        weight: (e) => this.updateField('weight', e.target.value),
+        airRate: (e) => this.updateField('airRate', e.target.value),
+        discount: (e) => this.updateField('discount', e.target.value),
+        releasedUnpaid: (e) => this.updateField('releasedUnpaid', e.target.checked),
+        finalDestination: this.onFinalDestinationChange,
+        location: this.onLocationChange,
+        destination: this.onDestinationChange,
+        shippingMethod: this.onShippingMethodChange
+      },
+      finalDestinationOptions: this.state.finalDestinations,
+      locationOptions: this.state.locations,
+      addingLocation: this.state.addingLocation,
+      newLocationText: this.state.newLocationText,
+      onNewLocationTextChange: this.onNewLocationTextChange,
+      confirmAddLocation: this.confirmAddLocation,
+      addingFinalDestination: this.state.addingFinalDestination,
+      newFinalDestinationText: this.state.newFinalDestinationText,
+      onNewFinalDestinationTextChange: this.onNewFinalDestinationTextChange,
+      confirmAddFinalDestination: this.confirmAddFinalDestination,
+      destinationOptions: this.state.destinations,
+      addingDestination: this.state.addingDestination,
+      newDestinationText: this.state.newDestinationText,
+      onNewDestinationTextChange: this.onNewDestinationTextChange,
+      confirmAddDestination: this.confirmAddDestination,
+      batchOptions: this.currentBatchList().map(b => ({ value: b.id, label: b.label + (b.status === 'Open' ? '' : ' (Closed)') })),
+      shippingMethodOptions: this.state.shippingMethods,
+      addingShippingMethod: this.state.addingShippingMethod,
+      newShippingMethodText: this.state.newShippingMethodText,
+      onNewShippingMethodTextChange: this.onNewShippingMethodTextChange,
+      confirmAddShippingMethod: this.confirmAddShippingMethod,
+      savedCustomers: loadCustomers(),
+      savedDescriptions: loadDescriptions(),
+      senderPhoneDisplay: formatSenderPhone(this.state.form.senderPhone),
+      receiverPhoneDisplay: formatReceiverPhone(this.state.form.receiverPhone),
+      isAirShipment: (this.state.form.shippingMethod || '').toLowerCase().indexOf('air') !== -1,
+      isNotAirShipment: (this.state.form.shippingMethod || '').toLowerCase().indexOf('air') === -1,
+      freightAmountLabel: 'OMR ' + money((Number(this.state.form.weight) || 0) * (Number(this.state.form.airRate) || 0)),
+      itemRows,
+      addItem: this.addItem,
+      totalAmountLabel: 'OMR ' + money(totalAmount),
+      totalWeightLabel: money(totalWeight) + ' Kg',
+      netAmountLabel: 'OMR ' + money(Math.max(0, totalAmount - (Number(this.state.form.discount) || 0))),
+      totalQtyLabel: this.state.items.reduce((a, it) => a + (Number(it.qty) || 0), 0),
+      addPayment: this.addPayment,
+      paymentRows: this.state.payments.map((p, i) => ({
+        ...p, index: i + 1,
+        canRemove: this.state.payments.length > 1,
+        onDateChange: (e) => this.updatePayment(i, 'date', e.target.value),
+        onAmountChange: (e) => this.updatePayment(i, 'amount', e.target.value),
+        onMethodChange: (e) => this.onPaymentMethodChange(i, e),
+        isAddingMethod: this.state.addingPaymentMethodIdx === i,
+        remove: () => this.removePayment(i)
+      })),
+      paymentMethodOptions: this.state.paymentMethods,
+      newPaymentMethodText: this.state.newPaymentMethodText,
+      onNewPaymentMethodTextChange: this.onNewPaymentMethodTextChange,
+      confirmAddPaymentMethod: this.confirmAddPaymentMethod,
+      totalPaidLabel: 'OMR ' + money(this.state.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0)),
+      balanceLabel: 'OMR ' + money(Math.max(0, totalAmount - (Number(this.state.form.discount) || 0) - this.state.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0))),
+      paymentStatusLabel: (() => {
+        const net = Math.max(0, totalAmount - (Number(this.state.form.discount) || 0));
+        const paid = this.state.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+        if (paid >= net && net > 0) return 'Fully Paid';
+        if (this.state.form.releasedUnpaid) return 'Released \u2014 Not Paid';
+        if (paid <= 0) return 'Not Paid';
+        return 'Partial';
+      })(),
+      printInvoice: this.printInvoice,
+      saveAsPdf: this.saveAsPdf,
+      startNewInvoice: this.startNewInvoice,
+      saveAndNext: this.saveAndNext,
+      hasRecentInvoices: this.state.recentInvoices.length > 0,
+      recentInvoices: this.state.recentInvoices.map(r => ({
+        label: r.number,
+        title: (r.date || '') + (r.who ? (' \u00b7 ' + r.who) : '') + (r.cancelled ? ' \u00b7 CANCELLED' : ''),
+        style: 'padding:5px 10px; border:1px solid ' + (r.cancelled ? '#E4B9B9' : '#DCD9D3') + '; background:' + (r.number === this.state.form.invoiceNo ? '#F2E7E9' : '#fff') + '; color:' + (r.cancelled ? '#B23A3A' : '#5C1220') + '; border-radius:20px; font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap;',
+        open: () => this.loadInvoiceByNumber(r.number)
+      })),
+      paymentToast: this.state.paymentToast,
+      hasPaymentToast: !!this.state.paymentToast,
+      dismissPaymentToast: () => this.setState({ paymentToast: '' }),
+      historySearch: this.state.historySearch,
+      onHistorySearchChange: this.onHistorySearchChange,
+      loadInvoiceFromHistory: this.loadInvoiceFromHistory,
+      cancelCurrentInvoice: this.cancelCurrentInvoice,
+      restoreCurrentInvoice: this.restoreCurrentInvoice,
+      isInvoiceCancelled: !!this.state.form.cancelled,
+      isInvoiceActive: !this.state.form.cancelled,
+      invoiceCancelledLabel: this.state.form.cancelled
+        ? ('CANCELLED \u00b7 by ' + (this.state.form.cancelledBy || '\u2014') + ' \u00b7 ' + (this.state.form.cancelledAt || '') + (this.state.form.cancelledReason ? ' \u00b7 ' + this.state.form.cancelledReason : ''))
+        : '',
+      historyNotFound: this.state.historyNotFound,
+      shareToWhatsApp: this.shareToWhatsApp,
+      onBankReceiptChange: this.onBankReceiptChange,
+      clearBankReceipt: this.clearBankReceipt,
+      onLuggagePhotoChange: this.onLuggagePhotoChange,
+      clearLuggagePhoto: this.clearLuggagePhoto,
+      trackingQrRef: (el) => { if (el && el !== this.trackingQrCanvas) { this.trackingQrCanvas = el; this.renderTrackingQr(); } },
+      officeSigRef: (el) => { if (el && el !== this.officeCanvas) { this.officeCanvas = el; this.setupSignaturePad('office'); } },
+      customerSigRef: (el) => { if (el && el !== this.customerCanvas) { this.customerCanvas = el; this.setupSignaturePad('customer'); } },
+      clearOfficeSig: () => this.clearCanvas('office'),
+      clearCustomerSig: () => this.clearCanvas('customer'),
+      mabelaQrRef: (el) => { if (el && el !== this.mabelaQrCanvas) { this.mabelaQrCanvas = el; this.renderLocationQrs(); } },
+      amratQrRef: (el) => { if (el && el !== this.amratQrCanvas) { this.amratQrCanvas = el; this.renderLocationQrs(); } }
+    };
+  }
+}
+</script>
+</body>
+</html>
