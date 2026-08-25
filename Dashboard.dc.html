@@ -5444,6 +5444,11 @@ class Component extends DCLogic {
   addShipment = () => {
     const ns = this.state.newShipment;
     if (!ns.senderName || !ns.receiverName || !ns.type) return;
+    const invoiceNo = (ns.invoiceNo || '').trim().toLowerCase();
+    if (invoiceNo && this.state.shipments.some(s => s.id !== this.state.editingShipmentId && (s.invoiceNo || '').trim().toLowerCase() === invoiceNo)) {
+      window.alert('Invoice number ' + ns.invoiceNo + ' already exists. Use a new invoice number.');
+      return;
+    }
     this.upsertCustomer(ns.senderName, ns.senderPhone);
     this.upsertCustomer(ns.receiverName, ns.receiverPhone);
     const itemsTotal = ns.items.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);

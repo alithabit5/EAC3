@@ -578,6 +578,7 @@ class Component extends DCLogic {
     items: [{ id: 'r1', description: '', qty: '', unitPrice: '', weight: '', rate: '' }],
     payments: [{ id: 'p1', date: '', amount: '', method: '' }],
     historySearch: '',
+    editingInvoiceNo: '',
     historyNotFound: false,
     paymentToast: '',
     recentInvoices: [],
@@ -825,6 +826,22 @@ class Component extends DCLogic {
     try {
       const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
       const history = raw ? JSON.parse(raw) : {};
+      const invoiceNo = (this.state.form.invoiceNo || '').trim();
+      const existingKey = Object.keys(history).find(k => k.toLowerCase() === invoiceNo.toLowerCase());
+      if (existingKey && existingKey.toLowerCase() !== (this.state.editingInvoiceNo || '').toLowerCase()) {
+        window.alert('Invoice number ' + invoiceNo + ' already exists. Use a new invoice number.');
+        return false;
+      }
+      const dashboardRaw = localStorage.getItem('eac_dashboard_data_v1');
+      const dashboardData = dashboardRaw ? JSON.parse(dashboardRaw) : {};
+      const shipmentExists = (dashboardData.shipments || []).some(s =>
+        (s.invoiceNo || '').trim().toLowerCase() === invoiceNo.toLowerCase() &&
+        (s.invoiceNo || '').trim().toLowerCase() !== (this.state.editingInvoiceNo || '').toLowerCase()
+      );
+      if (shipmentExists) {
+        window.alert('Invoice number ' + invoiceNo + ' already exists in Shipments. Use a new invoice number.');
+        return false;
+      }
       const prev = history[this.state.form.invoiceNo] || {};
       history[this.state.form.invoiceNo] = {
         ...prev,
@@ -842,6 +859,7 @@ class Component extends DCLogic {
     saveCustomer(this.state.form.receiverName, this.state.form.receiverPhone);
     this.state.items.forEach(it => saveDescription(it.description));
     this.syncToShipments();
+    return true;
   }
   syncToShipments() {
     try {
@@ -965,7 +983,7 @@ class Component extends DCLogic {
         const sh = (dData.shipments || []).find(x => (x.invoiceNo || '').toLowerCase() === key.toLowerCase());
         if (sh && sh.batchId) { form.batchId = sh.batchId; form.batchLabel = sh.batchLabel || ''; }
       } catch (e2) {}
-      this.setState({ form, items: rec.items, payments: rec.payments, historyNotFound: false }, () => { this.renderTrackingQr(true); this.ensureBatchDefault(); });
+      this.setState({ form, items: rec.items, payments: rec.payments, editingInvoiceNo: key, historyNotFound: false }, () => { this.renderTrackingQr(true); this.ensureBatchDefault(); });
     } catch (e) { this.setState({ historyNotFound: true }); }
   };
   cancelCurrentInvoice = () => {
@@ -1014,8 +1032,9 @@ class Component extends DCLogic {
     this.setState(s => ({ form: { ...s.form, ...stamp } }));
   };
   saveAndNext = () => {
-    this.saveToHistory();
+    if (!this.saveToHistory()) return;
     this.setState({
+      editingInvoiceNo: '',
       form: { invoiceNo: peekNextInvoiceNo(), date: todayStr(), senderName: '', senderPhone: '', receiverName: '', receiverPhone: '', destination: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false, bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '' },
       items: [{ id: 'r' + Date.now(), description: '', qty: '', unitPrice: '', weight: '', rate: '' }],
       payments: [{ id: 'p' + Date.now(), date: '', amount: '', method: '' }]
@@ -1023,8 +1042,9 @@ class Component extends DCLogic {
   };
   startNewInvoice = () => {
     if (!window.confirm('Start a new invoice? Unsaved changes on this one will be cleared.')) return;
-    this.saveToHistory();
+    if (!this.saveToHistory()) return;
     this.setState({
+      editingInvoiceNo: '',
       form: { invoiceNo: peekNextInvoiceNo(), date: todayStr(), senderName: '', senderPhone: '', receiverName: '', receiverPhone: '', destination: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false, bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '' },
       items: [{ id: 'r' + Date.now(), description: '', qty: '', unitPrice: '' }],
       payments: [{ id: 'p' + Date.now(), date: '', amount: '', method: '' }]
