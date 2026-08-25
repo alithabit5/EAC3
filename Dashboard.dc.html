@@ -1306,7 +1306,15 @@
                 <sc-for list="{{ teamPlainOptions }}" as="opt" hint-placeholder-count="4">
                   <option value="{{ opt.value }}">{{ opt.label }}</option>
                 </sc-for>
+                <option value="{{ addNewValue }}">+ Add New Team Member</option>
               </select>
+              <sc-if value="{{ addingTeamMemberForReceipt }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; gap:6px; margin-top:6px;">
+                  <input type="text" placeholder="New team member name" value="{{ newTeamMemberText }}" onChange="{{ onNewTeamMemberTextChange }}" style="{{ inputStyle }}; flex:1;" />
+                  <button onClick="{{ confirmAddTeamMember }}" style="padding:0 12px; border:none; border-radius:7px; background:#8C1D2E; color:#fff; font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit;">Add</button>
+                  <button onClick="{{ cancelAddTeamMember }}" style="padding:0 12px; border:1px solid #DCD9D3; border-radius:7px; background:#fff; color:#6B6B6D; font-size:12.5px; cursor:pointer; font-family:inherit;">Cancel</button>
+                </div>
+              </sc-if>
             </label>
             <label style="display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:#6B6B6D; font-weight:600;">Shipment Type
               <select value="{{ newReceiptCollection.shipmentType }}" onChange="{{ rcf.shipmentType }}" style="{{ inputStyle }}">
@@ -5790,6 +5798,7 @@ class Component extends DCLogic {
       const patch = { teamMembers: list, addingTeamMemberTarget: null, newTeamMemberText: '' };
       if (s.addingTeamMemberTarget === 'shipment') patch.newShipment = { ...s.newShipment, teamMember: name };
       if (s.addingTeamMemberTarget === 'collection') patch.newCollection = { ...s.newCollection, collectorName: name };
+      if (s.addingTeamMemberTarget === 'receipt') patch.newReceiptCollection = { ...s.newReceiptCollection, collectorName: name };
       if (s.addingTeamMemberTarget === 'order') patch.newOrder = { ...s.newOrder, teamMember: name };
       return patch;
     });
@@ -6617,7 +6626,10 @@ class Component extends DCLogic {
       shipmentType: (e) => this.updateReceiptCollectionField('shipmentType', e.target.value),
       receiptNo: (e) => this.updateReceiptCollectionField('receiptNo', e.target.value),
       amount: (e) => this.updateReceiptCollectionField('amount', e.target.value),
-      collectorName: (e) => this.updateReceiptCollectionField('collectorName', e.target.value)
+      collectorName: (e) => {
+        if (e.target.value === ADD_NEW) { this.setState({ addingTeamMemberTarget: 'receipt' }); return; }
+        this.updateReceiptCollectionField('collectorName', e.target.value);
+      }
     };
 
     // ---- Filtered shipment list (enriched) ----
@@ -7225,8 +7237,10 @@ class Component extends DCLogic {
 
       addingTeamMemberForShipment: addingTeamMemberTarget === 'shipment',
       addingTeamMemberForCollection: addingTeamMemberTarget === 'collection',
+      addingTeamMemberForReceipt: addingTeamMemberTarget === 'receipt',
       addingTeamMemberForOrder: addingTeamMemberTarget === 'order',
       newTeamMemberText,
+      addNewValue: ADD_NEW,
       onNewTeamMemberTextChange: this.onNewTeamMemberTextChange,
       confirmAddTeamMember: this.confirmAddTeamMember,
       cancelAddTeamMember: this.cancelAddTeamMember,
