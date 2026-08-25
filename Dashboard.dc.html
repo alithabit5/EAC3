@@ -151,7 +151,7 @@
       </div>
       <div class="eac-tabstrip" style="display:flex; gap:6px; background:#F2F0EC; border-radius:10px; padding:4px; flex-wrap:wrap;">
         <sc-if value="{{ isAdminUser }}" hint-placeholder-val="{{ false }}"><button onClick="{{ goOverview }}" style="{{ tabStyleOverview }}">Overview</button></sc-if>
-        <a href="Invoice.dc.html" style="padding:9px 12px; border-radius:7px; background:transparent; color:#6B6B6D; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap;">Invoice</a>
+        <a href="Invoice.dc.html" style="{{ tabStyleInvoice }}; text-decoration:none; display:block;">Invoice</a>
         <button onClick="{{ goShipments }}" style="{{ tabStyleShipments }}">Shipments</button>
         <button onClick="{{ goCollections }}" style="{{ tabStyleCollections }}">Money Collection</button>
         <button onClick="{{ goOrders }}" style="{{ tabStyleOrders }}">Order</button>
@@ -7130,6 +7130,7 @@ class Component extends DCLogic {
       airExpressBatchOptions: shipmentBatches.AirExpress.map(b => ({ value: b.id, label: b.label + (b.status === 'Open' ? ' (Open)' : ' (Closed)') })),
       airNormalBatchOptions: shipmentBatches.AirNormal.map(b => ({ value: b.id, label: b.label + (b.status === 'Open' ? ' (Open)' : ' (Closed)') })),
       tabStyleOverview: activeTab === 'overview' ? tabActive : tabInactive,
+      tabStyleInvoice: tabInactive,
       tabStyleShipments: activeTab === 'shipments' ? tabActive : tabInactive,
       tabStyleCollections: activeTab === 'collections' ? tabActive : tabInactive,
       tabStyleOrders: activeTab === 'orders' ? tabActive : tabInactive,
