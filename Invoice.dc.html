@@ -12,7 +12,7 @@
   <script src="./qrcode.js"></script>
   <script src="./qrcode-canvas.js"></script>
   <style>
-    @page { size: letter; margin: 0.25in; }
+    @page { size: A4 portrait; margin: 8mm; }
     @media print {
       .no-print { display: none !important; }
       body { background: #fff !important; }
@@ -1083,13 +1083,26 @@ class Component extends DCLogic {
       if (!window.html2pdf) throw new Error('PDF generator is unavailable.');
       const source = document.getElementById('invoiceSheet');
       if (!source) throw new Error('Invoice sheet is not available.');
-      const pdfBlob = await window.html2pdf().set({
-        margin: 8,
-        filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print') },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(source).outputPdf('blob');
+      const originalZoom = source.style.zoom;
+      const originalWidth = source.style.width;
+      const maxPageHeightPx = 1030;
+      const scale = Math.min(1, maxPageHeightPx / Math.max(source.scrollHeight, 1));
+      source.style.width = '768px';
+      source.style.zoom = String(scale);
+      let pdfBlob;
+      try {
+        pdfBlob = await window.html2pdf().set({
+          margin: 8,
+          filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print'), windowWidth: 1024 },
+          pagebreak: { mode: ['avoid-all'] },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        }).from(source).outputPdf('blob');
+      } finally {
+        source.style.zoom = originalZoom;
+        source.style.width = originalWidth;
+      }
       const file = new File([pdfBlob], (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf', { type: 'application/pdf' });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] }) && window.self === window.top) {
         await navigator.share({ title: 'East Africa Cargo Invoice ' + f.invoiceNo, text, files: [file] });
