@@ -1,6 +1,14 @@
 (function () {
   const QUEUE_KEY = 'eac_offline_queue_v1';
   const DEVICE_ID_KEY = 'eac_device_id_v1';
+  const EXTRA_STORES = {
+    invoiceHistory: 'eac_invoice_history_v1',
+    invoiceCustomers: 'eac_invoice_customers_v1',
+    invoiceDescriptions: 'eac_invoice_descriptions_v1',
+    invoiceTeamMember: 'eac_invoice_team_member_v1',
+    invoiceSequence: 'eac_invoice_next_seq_v1',
+    materialsReceipts: 'eac_materials_receipts_v1'
+  };
 
   const readJson = (key, fallback) => {
     try {
@@ -41,16 +49,33 @@
     }
   };
 
+  const getExtraStores = () => Object.keys(EXTRA_STORES).reduce((extras, name) => {
+    const raw = localStorage.getItem(EXTRA_STORES[name]);
+    if (!raw) return extras;
+    try { extras[name] = JSON.parse(raw); } catch (e) { extras[name] = raw; }
+    return extras;
+  }, {});
+
+  const restoreExtraStores = (payload) => {
+    Object.keys(EXTRA_STORES).forEach(name => {
+      if (payload[name] === undefined) return;
+      writeJson(EXTRA_STORES[name], payload[name]);
+    });
+  };
+
   const queueSnapshot = (payload) => {
     if (!payload || typeof payload !== 'object') return null;
     const queued = readJson(QUEUE_KEY, []);
     const deviceId = getDeviceId();
+    const dashboard = readJson('eac_dashboard_data_v1', {});
     const item = {
       id: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : 'sync-' + Date.now() + '-' + Math.random().toString(16).slice(2),
       createdAt: Date.now(),
       deviceId,
       payload: {
+        ...dashboard,
         ...payload,
+        ...getExtraStores(),
         __meta: { ...(payload.__meta || {}), updatedAt: payload.__meta?.updatedAt || Date.now(), source: 'dashboard' }
       }
     };
@@ -125,6 +150,7 @@
     const remoteTs = remotePayload.__meta ? Number(remotePayload.__meta.updatedAt || 0) : new Date(latest.created_at || Date.now()).getTime();
 
     if (remoteTs > localTs) {
+      restoreExtraStores(remotePayload);
       localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(remotePayload));
       return remotePayload;
     }

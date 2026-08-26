@@ -1017,6 +1017,7 @@ class Component extends DCLogic {
   onTeamMemberChange = (e) => {
     const v = e.target.value;
     try { localStorage.setItem(INVOICE_TEAM_MEMBER_KEY, v); } catch (err) {}
+    if (window.eacOfflineSync && typeof window.eacOfflineSync.queueSnapshot === 'function') window.eacOfflineSync.queueSnapshot({});
     this.setState({ teamMemberName: v });
   };
   onHistorySearchChange = (e) => this.setState({ historySearch: e.target.value, historyNotFound: false });

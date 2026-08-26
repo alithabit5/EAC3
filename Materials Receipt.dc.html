@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="./supabase/client.js"></script>
+<script src="./supabase/offline-sync.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -280,6 +283,15 @@ class Component extends DCLogic {
   drawingState = { issued: false, received: false };
 
   componentDidMount() {
+    if (window.eacOfflineSync && typeof window.eacOfflineSync.install === 'function') {
+      this.offlineSync = window.eacOfflineSync.install({
+        onRemoteSnapshot: (remotePayload) => {
+          if (!remotePayload || !Array.isArray(remotePayload.materialsReceipts)) return;
+          saveReceipts(remotePayload.materialsReceipts);
+          this.setState({ saved: remotePayload.materialsReceipts });
+        }
+      });
+    }
     this.setupSignaturePad('issued');
     this.setupSignaturePad('received');
   }
@@ -356,6 +368,7 @@ class Component extends DCLogic {
         ? s.saved.map(r => r.id === s.loadedId ? record : r)
         : [record, ...s.saved];
       saveReceipts(next);
+      if (window.eacOfflineSync) window.eacOfflineSync.queueSnapshot({ materialsReceipts: next });
       return { saved: next, loadedId: record.id };
     });
   };
@@ -402,6 +415,7 @@ class Component extends DCLogic {
         ? { ...x, cancelled: true, cancelledBy: who, cancelledReason: reason, cancelledAt: new Date().toLocaleString() }
         : x);
       saveReceipts(next);
+      if (window.eacOfflineSync) window.eacOfflineSync.queueSnapshot({ materialsReceipts: next });
       return { saved: next, loadedId: s.loadedId };
     });
   }
@@ -415,6 +429,7 @@ class Component extends DCLogic {
         ? { ...x, cancelled: false, restoredAt: new Date().toLocaleString() }
         : x);
       saveReceipts(next);
+      if (window.eacOfflineSync) window.eacOfflineSync.queueSnapshot({ materialsReceipts: next });
       return { saved: next };
     });
   }
