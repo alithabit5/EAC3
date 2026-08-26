@@ -1104,8 +1104,9 @@ class Component extends DCLogic {
     if (!this.trackingQrCanvas || !window.QRCode) return;
     if (!force && this.trackingQrCanvas.dataset.drawnFor === this.state.form.invoiceNo) return;
     this.trackingQrCanvas.dataset.drawnFor = this.state.form.invoiceNo;
-    const url = window.location.origin + window.location.pathname.replace(/Invoice\.dc\.html$/, 'Track Shipment.dc.html') + '?inv=' + encodeURIComponent(this.state.form.invoiceNo || '');
-    window.QRCode.toCanvas(this.trackingQrCanvas, url, { width: 320, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+    const trackingUrl = new URL('./Track Shipment.dc.html', window.location.href);
+    trackingUrl.searchParams.set('inv', this.state.form.invoiceNo || '');
+    window.QRCode.toCanvas(this.trackingQrCanvas, trackingUrl.toString(), { width: 320, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
   }
   shareToWhatsApp = async () => {
     if (!this.saveToHistory()) return;
