@@ -21,6 +21,7 @@
       #invoiceSheet { box-shadow: none !important; width: 190mm !important; max-width: 190mm !important; margin: 0 auto !important; border-width: 1.5px !important; }
       #invoiceWrap { padding: 0 !important; max-width: 100% !important; }
     }
+    body.exporting .no-print { display: none !important; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     *, *::before, *::after { box-sizing: border-box; }
     html { overflow-x: hidden; }
@@ -1110,7 +1111,7 @@ class Component extends DCLogic {
           margin: 8,
           filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print') },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
           pagebreak: { mode: ['avoid-all'] },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }).from(source).outputPdf('blob');
