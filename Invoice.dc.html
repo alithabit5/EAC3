@@ -84,6 +84,13 @@
 
     <div class="no-print" style="display:flex; align-items:center; gap:8px; margin-bottom:16px; background:#fff; border:1px solid #E6E3DE; border-radius:8px; padding:10px 14px; flex-wrap:wrap;">
       <a href="Dashboard.dc.html" style="font-size:12.5px; color:#6B6B6D; font-weight:700; text-decoration:none; padding-right:4px; border-right:1px solid #E6E3DE; margin-right:4px;">&larr; Dashboard</a>
+      <span style="font-size:12.5px; color:#6B6B6D; font-weight:600;">Team Member:</span>
+      <select value="{{ teamMemberName }}" onChange="{{ onTeamMemberChange }}" style="border:1px solid #DCD9D3; border-radius:6px; padding:6px 10px; font-size:12.5px; font-family:inherit; font-weight:700; color:#2B2A29; padding-right:14px; border-right:1px solid #E6E3DE; margin-right:6px;">
+        <option value="">Select&hellip;</option>
+        <sc-for list="{{ teamMemberOptions }}" as="opt" hint-placeholder-count="7">
+          <option value="{{ opt }}">{{ opt }}</option>
+        </sc-for>
+      </select>
       <span style="font-size:12.5px; color:#6B6B6D; font-weight:600;">Find previous invoice:</span>
       <input type="text" placeholder="e.g. EAC-00001A" value="{{ historySearch }}" onChange="{{ onHistorySearchChange }}" style="border:1px solid #DCD9D3; border-radius:6px; padding:6px 10px; font-size:12.5px; font-family:inherit; flex:1; max-width:220px;" />
       <button onClick="{{ loadInvoiceFromHistory }}" style="padding:7px 14px; border:none; background:#8C1D2E; color:#fff; border-radius:7px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;">Open</button>
@@ -537,13 +544,13 @@ const DASHBOARD_USERS = [
   { username: 'nasser', name: 'Nasser' }, { username: 'nassor', name: 'Nassor' },
   { username: 'suleiman', name: 'Suleiman' }, { username: 'fazal', name: 'Fazal' }, { username: 'mussa', name: 'Mussa' }
 ];
+const INVOICE_TEAM_MEMBER_KEY = 'eac_invoice_team_member_v1';
 function getLoggedInTeamName() {
+  // Invoice.dc.html has no login of its own (Dashboard.dc.html's Supabase auth session isn't
+  // shared with it), so the team member is picked once from the toolbar dropdown and
+  // remembered per device here instead.
   try {
-    const raw = localStorage.getItem('eac_dashboard_session_v1');
-    if (!raw) return '';
-    const session = JSON.parse(raw);
-    const match = DASHBOARD_USERS.find(u => u.username === session.username);
-    return match ? match.name : '';
+    return localStorage.getItem(INVOICE_TEAM_MEMBER_KEY) || '';
   } catch (e) { return ''; }
 }
 function readSeq() {
@@ -580,6 +587,7 @@ class Component extends DCLogic {
       destination: '', finalDestination: '', location: '', shippingMethod: '', comments: '', weight: '', airRate: '', discount: '', releasedUnpaid: false,
       bankReceiptName: '', bankReceiptData: '', luggagePhotoName: '', luggagePhotoData: '', batchId: '', batchLabel: ''
     },
+    teamMemberName: getLoggedInTeamName(),
     shipmentBatches: { Sea: [], AirExpress: [], AirNormal: [] },
     activeShipmentBatchId: { Sea: '', AirExpress: '', AirNormal: '' },
     items: [{ id: 'r1', description: '', qty: '', unitPrice: '', weight: '', rate: '' }],
@@ -984,6 +992,11 @@ class Component extends DCLogic {
   }
   printInvoice = () => { this.saveToHistory(); this.printWithInvoiceTitle(); };
   saveAsPdf = () => { this.saveToHistory(); this.printWithInvoiceTitle(); };
+  onTeamMemberChange = (e) => {
+    const v = e.target.value;
+    try { localStorage.setItem(INVOICE_TEAM_MEMBER_KEY, v); } catch (err) {}
+    this.setState({ teamMemberName: v });
+  };
   onHistorySearchChange = (e) => this.setState({ historySearch: e.target.value, historyNotFound: false });
   refreshRecentInvoices() {
     try {
@@ -1228,6 +1241,9 @@ class Component extends DCLogic {
       newShippingMethodText: this.state.newShippingMethodText,
       onNewShippingMethodTextChange: this.onNewShippingMethodTextChange,
       confirmAddShippingMethod: this.confirmAddShippingMethod,
+      teamMemberName: this.state.teamMemberName,
+      onTeamMemberChange: this.onTeamMemberChange,
+      teamMemberOptions: DASHBOARD_USERS.map(u => u.name),
       savedCustomers: loadCustomers(),
       savedDescriptions: loadDescriptions(),
       senderPhoneDisplay: formatSenderPhone(this.state.form.senderPhone),
