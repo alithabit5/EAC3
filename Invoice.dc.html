@@ -1110,7 +1110,7 @@ class Component extends DCLogic {
           margin: 8,
           filename: (f.invoiceNo || 'east-africa-cargo-invoice') + '.pdf',
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print'), windowWidth: 1024 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', ignoreElements: (element) => element.classList.contains('no-print') },
           pagebreak: { mode: ['avoid-all'] },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }).from(source).outputPdf('blob');
