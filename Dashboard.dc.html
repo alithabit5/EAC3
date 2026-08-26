@@ -3939,6 +3939,7 @@ const ORDER_STATUSES = ['Pending', 'Completed'];
 const PAYMENT_METHODS = ['Paid by Bank', 'Paid by Cash', 'Free-released'];
 const ADD_NEW = '__ADD_NEW__';
 const STORAGE_KEY = 'eac_dashboard_data_v1';
+const INVOICE_HISTORY_KEY = 'eac_invoice_history_v1';
 const CENTRES = [
   { key: 'Sea', label: 'Sea Freight' },
   { key: 'AirNormal', label: 'Air - Normal' },
@@ -4622,6 +4623,54 @@ class Component extends DCLogic {
     this.persist();
   }
 
+  // Invoice.dc.html owns the full invoice record (eac_invoice_history_v1) and only pushes a
+  // summary into shipments when an invoice is saved there — it never pulls edits back. So an
+  // edit made here (payments, batch move, sender/receiver name, location/destination) would
+  // otherwise be invisible next time that invoice is reopened, and could even get silently
+  // reverted if the stale invoice is saved again. This writes the fields dashboard edits can
+  // actually change back into the matching invoice record, keyed by invoice number.
+  syncShipmentsToInvoiceHistory(shipments) {
+    try {
+      const raw = localStorage.getItem(INVOICE_HISTORY_KEY);
+      if (!raw) return;
+      const history = JSON.parse(raw);
+      let historyChanged = false;
+      (shipments || []).forEach(sh => {
+        const invoiceNo = (sh.invoiceNo || '').trim();
+        if (!invoiceNo) return;
+        const key = Object.keys(history).find(k => k.toLowerCase() === invoiceNo.toLowerCase());
+        if (!key) return;
+        const rec = history[key];
+        const form = { ...(rec.form || {}) };
+        let formChanged = false;
+        const setIfDiff = (field, value) => {
+          if (value !== undefined && form[field] !== value) { form[field] = value; formChanged = true; }
+        };
+        setIfDiff('senderName', sh.senderName);
+        setIfDiff('senderPhone', sh.senderPhone);
+        setIfDiff('receiverName', sh.receiverName);
+        setIfDiff('receiverPhone', sh.receiverPhone);
+        setIfDiff('location', sh.location);
+        // Shipment and invoice name these two the other way around from each other.
+        setIfDiff('destination', sh.mainDestination);
+        setIfDiff('finalDestination', sh.destination);
+        setIfDiff('batchId', sh.batchId);
+        setIfDiff('batchLabel', sh.batchLabel);
+
+        const shPayments = Array.isArray(sh.payments)
+          ? sh.payments.map(pm => ({ id: pm.id, method: pm.method || '', amount: Number(pm.amount) || 0, date: pm.date || '' }))
+          : [];
+        const paymentsChanged = JSON.stringify(shPayments) !== JSON.stringify(rec.payments || []);
+
+        if (formChanged || paymentsChanged) {
+          history[key] = { ...rec, form, payments: paymentsChanged ? shPayments : (rec.payments || []) };
+          historyChanged = true;
+        }
+      });
+      if (historyChanged) localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) { /* storage full or unavailable */ }
+  }
+
   persist() {
     try {
       const data = {
@@ -4660,6 +4709,11 @@ class Component extends DCLogic {
       if (json === this._lastPersistedJson) return;
       this._lastPersistedJson = json;
       localStorage.setItem(STORAGE_KEY, json);
+      const shipmentsJson = JSON.stringify(this.state.shipments);
+      if (shipmentsJson !== this._lastSyncedShipmentsJson) {
+        this._lastSyncedShipmentsJson = shipmentsJson;
+        this.syncShipmentsToInvoiceHistory(this.state.shipments);
+      }
     } catch (e) { /* storage full or unavailable */ }
   }
 
