@@ -22,6 +22,10 @@
       #invoiceWrap { padding: 0 !important; max-width: 100% !important; }
     }
     body.exporting .no-print { display: none !important; }
+    /* html2canvas mis-shapes multi-line direction:rtl text of a plain-Latin-script block
+       (numbers/characters overlapping); real printing renders it correctly, so this is
+       scoped to the canvas-export (WhatsApp/PDF) path only. */
+    body.canvas-export .kanuni-rtl { direction: ltr !important; text-align: left !important; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     *, *::before, *::after { box-sizing: border-box; }
     html { overflow-x: hidden; }
@@ -397,7 +401,7 @@
             5 - Dear Customer , Company is not responsible for any shipment that has not been collected from the recipent within three months , whether payment has been made or not. Thank you.
           </div>
         </div>
-        <div style="direction:rtl; text-align:right;">
+        <div class="kanuni-rtl" style="direction:rtl; text-align:right;">
           <div style="font-weight:700; font-size:10.5px; margin-bottom:3px;">kanuni :</div>
           <div style="font-size:7.5px; line-height:1.4; color:#222;">
             1- Mteja aangalie mzigo wake ipasavyo wakati wa kupokea na kama kuna kilichoharibika au kupungua toa taarifa hapo hapo na kusaini hati(risit) .Vinginevyo hakuna dai au malipo yatafanywa na Kampuni.<br />
@@ -942,27 +946,38 @@ class Component extends DCLogic {
     });
     data.receiptCollections = receiptCollections;
   }
-  prepareInvoiceA4() {
+  prepareInvoiceA4(shrinkToFit) {
     const source = document.getElementById('invoiceSheet');
     if (!source) throw new Error('Invoice sheet is not available.');
     document.body.classList.add('exporting');
+    // shrinkToFit is only true for real browser printing. When it's false (the html2canvas
+    // WhatsApp/PDF path), also flag canvas-export so CSS can work around html2canvas-only
+    // rendering quirks (see .kanuni-rtl below) that real printing doesn't have.
+    if (!shrinkToFit) document.body.classList.add('canvas-export');
     const original = { width: source.style.width, maxWidth: source.style.maxWidth, zoom: source.style.zoom };
     source.style.width = '190mm';
     source.style.maxWidth = '190mm';
     source.style.zoom = '1';
-    const scale = Math.min(1, 1030 / Math.max(source.scrollHeight, 1));
-    source.style.zoom = String(scale);
+    // CSS zoom isn't reliably honored by html2canvas's text renderer (it paints text at the
+    // unzoomed font size while positioning it in the zoomed, smaller layout boxes), which
+    // garbles/overlaps text in the WhatsApp PDF. Only shrink via zoom for real browser
+    // printing, which renders zoom correctly.
+    if (shrinkToFit) {
+      const scale = Math.min(1, 1030 / Math.max(source.scrollHeight, 1));
+      source.style.zoom = String(scale);
+    }
     return () => {
       source.style.width = original.width;
       source.style.maxWidth = original.maxWidth;
       source.style.zoom = original.zoom;
       document.body.classList.remove('exporting');
+      document.body.classList.remove('canvas-export');
     };
   }
   printWithInvoiceTitle() {
     const prevTitle = document.title;
     let restore;
-    try { restore = this.prepareInvoiceA4(); } catch (e) {}
+    try { restore = this.prepareInvoiceA4(true); } catch (e) {}
     document.title = (this.state.form.invoiceNo || 'East Africa Cargo Invoice');
     window.print();
     setTimeout(() => { document.title = prevTitle; if (restore) restore(); }, 1000);
@@ -1104,7 +1119,7 @@ class Component extends DCLogic {
       if (!window.html2pdf) throw new Error('PDF generator is unavailable.');
       const source = document.getElementById('invoiceSheet');
       if (!source) throw new Error('Invoice sheet is not available.');
-      const restore = this.prepareInvoiceA4();
+      const restore = this.prepareInvoiceA4(false);
       let pdfBlob;
       try {
         pdfBlob = await window.html2pdf().set({
