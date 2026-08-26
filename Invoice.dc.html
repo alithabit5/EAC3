@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="./supabase/client.js"></script>
+<script src="./supabase/offline-sync.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -622,6 +625,19 @@ class Component extends DCLogic {
   drawingState = { office: false, customer: false };
 
   componentDidMount() {
+    if (window.eacOfflineSync && typeof window.eacOfflineSync.install === 'function') {
+      this.offlineSync = window.eacOfflineSync.install({
+        onRemoteSnapshot: (remotePayload) => {
+          if (!remotePayload || typeof remotePayload !== 'object') return;
+          try {
+            const { __meta, invoiceHistory, ...dashboardData } = remotePayload;
+            if (invoiceHistory && typeof invoiceHistory === 'object') localStorage.setItem(INVOICE_HISTORY_KEY, JSON.stringify(invoiceHistory));
+            localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(dashboardData));
+            this.refreshRecentInvoices();
+          } catch (e) {}
+        }
+      });
+    }
     this.setupSignaturePad('office');
     this.setupSignaturePad('customer');
     this.renderLocationQrs();
@@ -938,6 +954,12 @@ class Component extends DCLogic {
       data.shipments = shipments;
       this.syncCashPaymentsToReceiptCollections(data, f, method);
       localStorage.setItem('eac_dashboard_data_v1', JSON.stringify(data));
+      if (window.eacOfflineSync && typeof window.eacOfflineSync.queueSnapshot === 'function') {
+        window.eacOfflineSync.queueSnapshot({
+          ...data,
+          invoiceHistory: JSON.parse(localStorage.getItem(INVOICE_HISTORY_KEY) || '{}')
+        });
+      }
     } catch (e) { /* ignore */ }
   }
   syncCashPaymentsToReceiptCollections(data, f, method) {

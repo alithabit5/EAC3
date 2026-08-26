@@ -133,6 +133,7 @@
   };
 
   const install = ({ onRemoteSnapshot } = {}) => {
+    let syncInFlight = null;
     const applyIfNeeded = async () => {
       if (!window.eacSupabase) return;
       try {
@@ -145,23 +146,32 @@
       }
     };
 
+    const syncNow = () => {
+      if (syncInFlight) return syncInFlight;
+      syncInFlight = flushQueue()
+        .then(() => applyIfNeeded())
+        .finally(() => { syncInFlight = null; });
+      return syncInFlight;
+    };
+
     window.addEventListener('online', () => {
-      queueMicrotask(() => flushQueue().then(() => applyIfNeeded()));
+      queueMicrotask(syncNow);
     });
 
     window.addEventListener('DOMContentLoaded', () => {
-      queueMicrotask(() => flushQueue().then(() => applyIfNeeded()));
+      queueMicrotask(syncNow);
     });
 
-    setTimeout(() => {
-      flushQueue().then(() => applyIfNeeded());
-    }, 250);
+    const retryTimer = setInterval(syncNow, 30000);
+    setTimeout(syncNow, 250);
 
     return {
       flushQueue,
       syncLatestRemoteSnapshot,
+      syncNow,
       queueSnapshot,
-      getSnapshotPayload
+      getSnapshotPayload,
+      stop: () => clearInterval(retryTimer)
     };
   };
 
