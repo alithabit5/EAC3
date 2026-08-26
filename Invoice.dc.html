@@ -142,11 +142,11 @@
           <img src="assets/logo.jpg" alt="logo" style="width:64px; height:64px; object-fit:contain; border-radius:50%; image-rendering:-webkit-optimize-contrast;" />
           <div style="display:flex; gap:6px; justify-content:center; margin-top:4px;">
             <div style="text-align:center;">
-              <canvas ref="{{ mabelaQrRef }}" width="70" height="70" style="width:36px; height:36px;"></canvas>
+              <canvas ref="{{ mabelaQrRef }}" width="240" height="240" style="width:36px; height:36px;"></canvas>
               <div style="font-size:6px; color:#444;">Mabela</div>
             </div>
             <div style="text-align:center;">
-              <canvas ref="{{ amratQrRef }}" width="70" height="70" style="width:36px; height:36px;"></canvas>
+              <canvas ref="{{ amratQrRef }}" width="240" height="240" style="width:36px; height:36px;"></canvas>
               <div style="font-size:6px; color:#444;">Amrat</div>
             </div>
           </div>
@@ -180,7 +180,7 @@
           <div style="font-size:16px; font-weight:800; letter-spacing:1px; color:#5C1220;">INVOICE</div>
           <div style="font-size:8px; color:#4A7FB5; margin-top:1px;">Scan to track shipment</div>
         </div>
-        <canvas ref="{{ trackingQrRef }}" width="56" height="56" style="width:56px; height:56px;"></canvas>
+        <canvas ref="{{ trackingQrRef }}" width="320" height="320" style="width:56px; height:56px;"></canvas>
       </div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
@@ -675,11 +675,11 @@ class Component extends DCLogic {
     if (!window.QRCode) return;
     if (this.mabelaQrCanvas && !this.mabelaQrCanvas.dataset.drawn) {
       this.mabelaQrCanvas.dataset.drawn = '1';
-      window.QRCode.toCanvas(this.mabelaQrCanvas, 'https://maps.app.goo.gl/mQtE3aKaqxLRfk2y5?g_st=ac', { width: 70, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+      window.QRCode.toCanvas(this.mabelaQrCanvas, 'https://maps.app.goo.gl/mQtE3aKaqxLRfk2y5?g_st=ac', { width: 240, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
     }
     if (this.amratQrCanvas && !this.amratQrCanvas.dataset.drawn) {
       this.amratQrCanvas.dataset.drawn = '1';
-      window.QRCode.toCanvas(this.amratQrCanvas, 'https://maps.app.goo.gl/pgqTDAAFGqJixopg9', { width: 70, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+      window.QRCode.toCanvas(this.amratQrCanvas, 'https://maps.app.goo.gl/pgqTDAAFGqJixopg9', { width: 240, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
     }
   }
 
@@ -1105,7 +1105,7 @@ class Component extends DCLogic {
     if (!force && this.trackingQrCanvas.dataset.drawnFor === this.state.form.invoiceNo) return;
     this.trackingQrCanvas.dataset.drawnFor = this.state.form.invoiceNo;
     const url = window.location.origin + window.location.pathname.replace(/Invoice\.dc\.html$/, 'Track Shipment.dc.html') + '?inv=' + encodeURIComponent(this.state.form.invoiceNo || '');
-    window.QRCode.toCanvas(this.trackingQrCanvas, url, { width: 56, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
+    window.QRCode.toCanvas(this.trackingQrCanvas, url, { width: 320, margin: 1, color: { dark: '#111111', light: '#ffffff' } }, () => {});
   }
   shareToWhatsApp = async () => {
     if (!this.saveToHistory()) return;
