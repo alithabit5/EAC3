@@ -958,7 +958,9 @@
                     <td style="{{ tdStyle }}">
                       <div style="display:flex; gap:10px;">
                         <button onClick="{{ s.editRow }}" style="background:none; border:none; color:#8C1D2E; font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit; padding:0;">Edit</button>
-                        <button onClick="{{ s.deleteRow }}" style="background:none; border:none; color:#9A9A9C; font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit; padding:0;">Delete</button>
+                        <sc-if value="{{ s.canDelete }}" hint-placeholder-val="{{ false }}">
+                          <button onClick="{{ s.deleteRow }}" style="background:none; border:none; color:#9A9A9C; font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit; padding:0;">Delete</button>
+                        </sc-if>
                       </div>
                     </td>
                   </tr>
@@ -1414,6 +1416,7 @@
             </sc-for>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+            <input type="date" value="{{ newExpense.date }}" onChange="{{ ef.date }}" style="{{ inputStyle }}; flex:1; min-width:140px;" />
             <input type="text" placeholder="Expense description (e.g. Fuel)" value="{{ newExpense.label }}" onChange="{{ ef.label }}" style="{{ inputStyle }}; flex:2; min-width:180px;" />
             <select value="{{ newExpense.collectorName }}" onChange="{{ ef.collectorName }}" style="{{ inputStyle }}; flex:1; min-width:140px;">
               <option value="">Team (optional)</option>
@@ -4213,7 +4216,7 @@ class Component extends DCLogic {
     newReceiptCollection: emptyReceiptCollection(),
     editingReceiptCollectionId: null,
     collectionExpenses: [],
-    newExpense: { label: '', amount: '', collectorName: '' },
+    newExpense: { date: todayStr(), label: '', amount: '', collectorName: '' },
     confirmingAs: '',
     dailyConfirmations: {},
     deleteOrderBatchId: '',
@@ -5564,6 +5567,11 @@ class Component extends DCLogic {
   }
   cancelEditShipment = () => this.setState({ newShipment: emptyShipment(), editingShipmentId: null });
   deleteShipment(id) {
+    const isAdmin = !!(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin');
+    if (!isAdmin) {
+      window.alert('Only admins can delete shipments.');
+      return;
+    }
     if (!window.confirm('Delete this shipment record? This cannot be undone.')) return;
     this.setState(s => ({
       shipments: s.shipments.filter(x => x.id !== id),
@@ -5700,8 +5708,8 @@ class Component extends DCLogic {
     const ex = this.state.newExpense;
     const amt = Number(ex.amount);
     if (!ex.label || !amt) return;
-    const entry = { id: 'exp' + Date.now(), label: ex.label, amount: amt, collectorName: ex.collectorName || '', date: todayStr(), batchId: this.state.activeCollectionBatchId, batchLabel: this.getCollectionBatchLabel(this.state.activeCollectionBatchId) };
-    this.setState(s => ({ collectionExpenses: [entry, ...s.collectionExpenses], newExpense: { label: '', amount: '', collectorName: ex.collectorName || '' } }));
+    const entry = { id: 'exp' + Date.now(), label: ex.label, amount: amt, collectorName: ex.collectorName || '', date: ex.date || todayStr(), batchId: this.state.activeCollectionBatchId, batchLabel: this.getCollectionBatchLabel(this.state.activeCollectionBatchId) };
+    this.setState(s => ({ collectionExpenses: [entry, ...s.collectionExpenses], newExpense: { ...s.newExpense, date: ex.date || todayStr(), label: '', amount: '', collectorName: ex.collectorName || '' } }));
   };
   removeExpense(id) {
     this.setState(s => ({ collectionExpenses: s.collectionExpenses.filter(x => x.id !== id) }));
@@ -6764,6 +6772,7 @@ class Component extends DCLogic {
       statusChipStyle: chipStyle(shipStatusHue(s.status)),
       editRow: () => this.editShipment(s.id),
       deleteRow: () => this.deleteShipment(s.id),
+      canDelete: !!(this.state.currentUserProfile && this.state.currentUserProfile.role === 'admin'),
       onDocumentChange: (e) => this.onRowDocumentChange(s.id, e),
       onBankReceiptChange: (e) => this.onRowBankReceiptChange(s.id, e),
       batchMoveOptions: (() => {
@@ -7787,6 +7796,7 @@ class Component extends DCLogic {
       expensePresets: ['Fuel', 'Ooredoo Voucher', 'WiFi'].map(label => ({ label, select: () => this.selectExpensePreset(label) })),
       newExpense: this.state.newExpense,
       ef: {
+        date: (e) => this.updateExpenseField('date', e.target.value),
         label: (e) => this.updateExpenseField('label', e.target.value),
         amount: (e) => this.updateExpenseField('amount', e.target.value),
         collectorName: (e) => this.updateExpenseField('collectorName', e.target.value)
