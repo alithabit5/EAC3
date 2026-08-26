@@ -160,6 +160,34 @@
 
   const install = ({ onRemoteSnapshot } = {}) => {
     let syncInFlight = null;
+    let realtimeChannel = null;
+    const applyRemotePayload = (remotePayload, createdAt) => {
+      if (!remotePayload || typeof remotePayload !== 'object' || readJson(QUEUE_KEY, []).length) return;
+      const localPayload = readJson('eac_dashboard_data_v1', {});
+      const localTs = Number(localPayload.__meta?.updatedAt || 0);
+      const remoteTs = Number(remotePayload.__meta?.updatedAt || new Date(createdAt || Date.now()).getTime());
+      if (remoteTs <= localTs) return;
+      restoreExtraStores(remotePayload);
+      writeJson('eac_dashboard_data_v1', remotePayload);
+      if (typeof onRemoteSnapshot === 'function') onRemoteSnapshot(remotePayload);
+    };
+
+    const connectRealtime = async () => {
+      if (!window.eacSupabase || realtimeChannel) return;
+      const { data: sessionData } = await window.eacSupabase.auth.getSession();
+      if (!sessionData?.session) return;
+      if (window.eacSupabase.realtime && window.eacSupabase.realtime.setAuth) {
+        await window.eacSupabase.realtime.setAuth(sessionData.session.access_token);
+      }
+      realtimeChannel = window.eacSupabase
+        .channel('eac-sync-snapshots')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sync_snapshots' }, (event) => {
+          const row = event.new || {};
+          if (row.kind === 'dashboard') applyRemotePayload(row.payload, row.created_at);
+        })
+        .subscribe();
+    };
+
     const applyIfNeeded = async () => {
       if (!window.eacSupabase) return;
       try {
@@ -175,6 +203,7 @@
     const syncNow = () => {
       if (syncInFlight) return syncInFlight;
       syncInFlight = flushQueue()
+        .then(() => connectRealtime())
         .then(() => applyIfNeeded())
         .finally(() => { syncInFlight = null; });
       return syncInFlight;
@@ -197,7 +226,11 @@
       syncNow,
       queueSnapshot,
       getSnapshotPayload,
-      stop: () => clearInterval(retryTimer)
+      stop: () => {
+        clearInterval(retryTimer);
+        if (realtimeChannel) window.eacSupabase.removeChannel(realtimeChannel);
+        realtimeChannel = null;
+      }
     };
   };
 

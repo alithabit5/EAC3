@@ -16,3 +16,15 @@ create policy "authenticated users can insert sync snapshots" on public.sync_sna
 
 create index if not exists sync_snapshots_created_at_idx
   on public.sync_snapshots (created_at desc);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'sync_snapshots'
+  ) then
+    alter publication supabase_realtime add table public.sync_snapshots;
+  end if;
+end $$;
