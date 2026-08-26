@@ -44,17 +44,19 @@
   const queueSnapshot = (payload) => {
     if (!payload || typeof payload !== 'object') return null;
     const queued = readJson(QUEUE_KEY, []);
+    const deviceId = getDeviceId();
     const item = {
       id: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : 'sync-' + Date.now() + '-' + Math.random().toString(16).slice(2),
       createdAt: Date.now(),
-      deviceId: getDeviceId(),
+      deviceId,
       payload: {
         ...payload,
         __meta: { ...(payload.__meta || {}), updatedAt: payload.__meta?.updatedAt || Date.now(), source: 'dashboard' }
       }
     };
-    queued.push(item);
-    writeJson(QUEUE_KEY, queued);
+    const compactedQueue = queued.filter(existing => existing.deviceId !== deviceId);
+    compactedQueue.push(item);
+    writeJson(QUEUE_KEY, compactedQueue);
     return item;
   };
 
@@ -97,6 +99,8 @@
 
   const syncLatestRemoteSnapshot = async () => {
     if (!window.eacSupabase || !navigator.onLine) return null;
+
+    if (readJson(QUEUE_KEY, []).length) return null;
 
     const { data: sessionData } = await window.eacSupabase.auth.getSession();
     if (!sessionData?.session) return null;
