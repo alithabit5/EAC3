@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./supabase/client.js"></script>
 <script src="./supabase/data.js"></script>
+<script src="./supabase/offline-sync.js"></script>
 <script src="./support.js"></script>
 <template id="__bundler_thumbnail" data-bg-color="#8C1D2E">
   <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -4336,6 +4337,17 @@ class Component extends DCLogic {
         this.setState(saved, () => { this.backfillBatchLabels(); this.purgeExpiredLuggagePhotos(); });
       }
     } catch (e) { /* ignore corrupt storage */ }
+
+    if (window.eacOfflineSync && typeof window.eacOfflineSync.install === 'function') {
+      this.offlineSync = window.eacOfflineSync.install({
+        onRemoteSnapshot: (remotePayload) => {
+          if (!remotePayload || typeof remotePayload !== 'object') return;
+          const { __meta, ...rest } = remotePayload;
+          this.setState(rest, () => { this.backfillBatchLabels(); this.purgeExpiredLuggagePhotos(); });
+        }
+      });
+    }
+
     this.restoreSupabaseSession();
   }
 
@@ -4674,6 +4686,7 @@ class Component extends DCLogic {
   persist() {
     try {
       const data = {
+        __meta: { updatedAt: Date.now() },
         shipments: this.state.shipments, collections: this.state.collections, orders: this.state.orders,
         shipmentBatches: this.state.shipmentBatches, activeShipmentBatchId: this.state.activeShipmentBatchId,
         collectionBatches: this.state.collectionBatches, activeCollectionBatchId: this.state.activeCollectionBatchId,
@@ -4709,6 +4722,9 @@ class Component extends DCLogic {
       if (json === this._lastPersistedJson) return;
       this._lastPersistedJson = json;
       localStorage.setItem(STORAGE_KEY, json);
+      if (window.eacOfflineSync && typeof window.eacOfflineSync.queueSnapshot === 'function') {
+        window.eacOfflineSync.queueSnapshot(data);
+      }
       const shipmentsJson = JSON.stringify(this.state.shipments);
       if (shipmentsJson !== this._lastSyncedShipmentsJson) {
         this._lastSyncedShipmentsJson = shipmentsJson;
